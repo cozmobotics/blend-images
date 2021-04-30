@@ -5,13 +5,13 @@
 # "image stabilisation" = zoom/pan/rotate similar images so they fit together 
 # slowly pan pnoramic images across screen 
 # option: manually input height and width 
-# loop: do not read and discard the directory every time 
 # opencv cannot read a filename containing » 
 
 # done: 
 # subdirectries
 # stop "3rd picture" while blending = freeze
 # copy image path+name to clipboard
+# loop: do not read and discard the directory every time 
 
 import numpy as np
 import cv2 as cv
@@ -21,6 +21,22 @@ import argparse
 import re
 import random
 import clipboard
+
+#----------------------------------------------------------------
+# https://forum.opencv.org/t/filename-contains-character/3045/3
+def imread_funny (filename):
+	try: 
+		f = open(filename, "rb")
+		b = f.read()
+		f.close()
+		b = np.frombuffer(b, dtype=np.int8)
+		image = cv.imdecode(b, cv.IMREAD_COLOR);
+		return (image)
+	except exception as e:
+		print (e)
+		return None
+
+
 
 #----------------------------------------------------------------
 # https://thispointer.com/python-how-to-get-list-of-files-in-directory-and-sub-directories/
@@ -47,7 +63,8 @@ def getListOfFiles(dirName):
 
 #----------------------------------------------------------------
 def scaleImage (openName, screenWidth, screenHeight):
-	tempImg = cv.imread(openName)
+	# tempImg = cv.imread(openName)
+	tempImg = imread_funny(openName)
 	(h,w,c) = tempImg.shape
 	aspectRatioImage = (w+1) / (h+1) 
 	aspectRatioScreen = screenWidth / screenHeight
@@ -116,7 +133,7 @@ parser.add_argument("-m", "--mask", type=str, default=".", help="mask filename")
 parser.add_argument("-r", "--random", type=int, default="0", help="random shuffle")
 args = parser.parse_args()
 
-
+extensionsPhoto = ('.jpg', '.jpeg', 'jfif', '.tiff', '.bmp')
 steps = 50
 
 # Window in full-screen-mode, determie aspect ratio of screen
@@ -135,7 +152,8 @@ else:
 
 filenames = []
 for filename in fileList:
-	if ('.jpg' in filename.lower()):
+	if (filename.lower().endswith(extensionsPhoto)):
+	# if ('.jpg' in filename.lower()):
 		if (re.search(args.mask,filename)):
 			if (args.subdirs > 0):
 				filenames.append (filename)
@@ -144,6 +162,8 @@ for filename in fileList:
 
 NumFiles = len(filenames)
 print (NumFiles, "files found")
+if (NumFiles == 0):
+	exit()
 filenames.sort()
 
 key = 0
