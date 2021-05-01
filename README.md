@@ -30,3 +30,7 @@ optional arguments:
 *
 * Esc/q=quit, p=pause, c=copy filename to clipboard, f=freeze,
 *backspace=previous, any other key=next
+
+## Bugs and limitations
+* Works well under Windows, problem with detecting screen size under Linux
+* Todo's: see program code
