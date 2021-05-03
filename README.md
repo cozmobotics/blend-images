@@ -2,6 +2,8 @@
 
 Create a slide show of images in a folder with smooth transition between images
 
+Download executable for Windows here: http://martinpi.at/games/utils/blending_padding.exe  (it is too large for GitHub)
+
 Written in Python3, using opencv
 
 * Optionally dig into subdirectories, 
@@ -28,8 +30,7 @@ optional arguments:
 *  -m MASK, --mask MASK  mask filename
 *  -r RANDOM, --random RANDOM random shuffle
 *
-* Esc/q=quit, p=pause, c=copy filename to clipboard, f=freeze,
-*backspace=previous, any other key=next
+* Esc/q=quit, p=pause, c=copy filename to clipboard, f=freeze, backspace=previous, any other key=next
 
 ## Bugs and limitations
 * Works well under Windows, problem with detecting screen size under Linux
