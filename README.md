@@ -9,6 +9,8 @@ Written in Python3, using opencv
 
 It started as an excercise in the [tutorial](https://opencv-python-tutroals.readthedocs.io/en/latest/py_tutorials/py_core/py_image_arithmetics/py_image_arithmetics.html "Arithmetic Operations")
 
+It is a console application which needs a little computer knowledge to use it. I suggest to put a batch file onto your desktop which calls blending_padding like you prefer to use it, so you can drag a folder onto the batch to start the slideshow. I plan to add an instructional video. 
+
 ## Features:
 
 * Optionally dig into subdirectories, 
