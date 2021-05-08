@@ -22,8 +22,10 @@ It is a console application which needs a little computer knowledge to use it. I
 
 ## command line arguments
 
-usage: blending_padding.py [-h] [-p PATH] [-s SUBDIRS] [-d DURATION] [-f FADE]
-                           [-l LOOP] [-m MASK] [-r RANDOM]
+usage: blending_padding.exe [-h] [-p PATH] [-s SUBDIRS] [-d DURATION]
+                            [-f FADE] [-l LOOP] [-m MASK] [-a AGE] [-g GRAY]
+                            [-r RANDOM] [-w WIDTH] [-hh HEIGHT] [-o OUTPUT]
+                            [--fps FPS]
 
 display all images in folder with nice transitions
 
@@ -31,21 +33,28 @@ optional arguments:
 *  -h, --help            show this help message and exit
 *  -p PATH, --path PATH  path where images are found
 *  -s SUBDIRS, --subdirs SUBDIRS
-*                        subdirectories
+                        depth subdirectories. 0 (default): no subdirs, -1: all
+                        subdirs
 *  -d DURATION, --duration DURATION
-*                        time image is shown [seconds]. 0 for manual switching
+                        time image is shown [seconds]. 0 for manual switching
 *  -f FADE, --fade FADE  time of fading effect [seconds]
 *  -l LOOP, --loop LOOP  nr. of loops, -1 = loop forever, default=0
-*  -m MASK, --mask MASK  mask filename
-*  -r RANDOM, --random RANDOM random shuffle
+*  -m MASK, --mask MASK  mask filename (regex syntax)
+*  -a AGE, --age AGE     maximal age of file in days. -1.0 (default): all files
+*  -g GRAY, --gray GRAY  0 (default): color, all else: convert to grayscale
+*  -r RANDOM, --random RANDOM
+                        random shuffle. 0 (default): sorted, all else:
+                        shuffeled
 *  -w WIDTH, --width WIDTH
-*                        width. -1 (default): automatic
+                        width. -1 (default): automatic
 *  -hh HEIGHT, --height HEIGHT
-*                        height. -1 (default): automatic
-*  (You need to specify both width and height, or leave both to default)                      
-*
-* Esc/q=quit, p=pause, c=copy filename to clipboard, f=freeze, backspace=previous, any other key=next
+                        height. -1 (default): automatic
+*  -o OUTPUT, --output OUTPUT
+                        output video file (very experimental)
+*  --fps FPS             fps of output video (very experimental)
 
+* Esc/q=quit, p=pause, c=copy filename to clipboard, f=freeze,
+backspace=previous, space=next
 ## Bugs and limitations
 * Works well under Windows, problem with detecting screen size under Linux
 * Todo's: see program code
