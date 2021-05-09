@@ -14,6 +14,11 @@
 # invent some fancy transitions
 # fade time = 0 --> does not switch automatically .... why?
 # change fade and duration at runtime
+# make video-codec selectable by parameter
+# try TAPI / OCL https://learnopencv.com/opencv-transparent-api/
+# transition masked: on some images, parts of old image remain (max. color > 255 ?)
+# light curve(s)
+# mask inverted
 
 # done: 
 # subdirectries
@@ -102,6 +107,14 @@ def scaleImage (openName, screenWidth, screenHeight):
 		except Exception as e:
 			print (">>>> ERROR ", openName, ": ", e)
 			success = False
+	
+	if (success):
+		if (w>h):
+			pl = "l"
+		if (h>=w):
+			pl = "p"
+		if (not pl in args.portrait_landscape):
+			success = False
 			
 	if (success):
 		aspectRatioImage = (w+1) / (h+1) 
@@ -123,8 +136,8 @@ def scaleImage (openName, screenWidth, screenHeight):
 		tempImg = cv.copyMakeBorder(tempImg, topBottom, topBottom, leftRight, leftRight, cv.BORDER_CONSTANT, value=color)
 		
 		tempImg = cv.resize(tempImg, (screenWidth, screenHeight), cv.INTER_AREA)
-	else:
-		print (">>>> ERROR Unable to open ", openName)
+	# else:
+		# print (">>>> ERROR Unable to open ", openName)
 	
 	if (c != 3):
 		success = False
@@ -136,8 +149,37 @@ def scaleImage (openName, screenWidth, screenHeight):
 	
 	return (tempImg, success)
 #----------------------------------------------------------------
+def addMasked(img1,bright1,img2,bright2,oddEven):
+	
+	if (not oddEven):
+		imgA = img2
+		imgB = img1
+		brightA = bright2
+		brightB = bright1
+	else:
+		imgA = img1
+		imgB = img2
+		brightA = bright1
+		brightB = bright2
+	
+	gray = cv.cvtColor(imgB, cv.COLOR_BGR2GRAY)
+	ret,mask = cv.threshold(gray,int(255 * brightB) + 1,255,cv.THRESH_BINARY)
 
-def blend (img1, img2, oddEven, fadeTime, duration):
+	if (ret):
+		# mask = cv.bitwise_not (mask) # just another funny effect
+		
+		maskInverted = cv.bitwise_not (mask)
+		maskedA = cv.bitwise_and (imgA, imgA, mask=mask)
+		maskedB = cv.bitwise_and (imgB, imgB, mask=maskInverted)
+		res = cv.bitwise_or (maskedA, maskedB)
+		# cv.imshow ('debug', maskedA)
+	else:
+		res = cv.addWeighted(img1,bright1,img2,bright2,0)
+	
+	return res
+#----------------------------------------------------------------
+
+def blend (img1, img2, oddEven, fadeTime, duration, transition):
 		
 		timeNextFrame = time.time() + videoInterval
 		
@@ -148,8 +190,8 @@ def blend (img1, img2, oddEven, fadeTime, duration):
 			bright1 = 0
 			bright2 = 1
 		
-		dst = cv.addWeighted(img1,bright1,img2,bright2,0)
-		cv.imshow('dst',dst)
+		dst = cv.addWeighted(img1,bright1,img2,bright2,0)  # just to initialize variable dst
+		# cv.imshow('dst',dst)
 
 		quit = False
 		freeze = False
@@ -174,7 +216,11 @@ def blend (img1, img2, oddEven, fadeTime, duration):
 					bright2 = 1 - bright
 					bright1 = bright
 
-			dst = cv.addWeighted(img1,bright1,img2,bright2,0)
+			if (transition == "mask"):
+				dst = addMasked(img1,bright1,img2,bright2,oddEven)
+			else:
+				dst = cv.addWeighted(img1,bright1,img2,bright2,0)
+				
 			cv.imshow('dst',dst)
 			if ((args.output != '') and (time.time() > timeNextFrame)):
 				out.write(dst)
@@ -230,8 +276,10 @@ parser.add_argument("-p", "--path", type=str, default=".", help="path where imag
 parser.add_argument("-s", "--subdirs", type=int, default=0, help="depth of subdirectories.  0 (default): no subdirs, -1: all subdirs")
 parser.add_argument("-d", "--duration", type=float, default="5", help="time image is shown [seconds]. -1 for manual switching")
 parser.add_argument("-f", "--fade", type=float, default="1.5", help="time of fading effect [seconds]")
-parser.add_argument("-l", "--loop", type=int, default="1", help="nr. of loops, -1 = loop forever, default=1")
+parser.add_argument("-t", "--transition", type=str, default="fade", help="type of transition. fade (default), mask")
 parser.add_argument("-m", "--mask", type=str, default=".", help="mask filename (regex syntax)")
+parser.add_argument("-pl", "--portrait_landscape", type=str, default="pl", help="filter portrait or landscape. p = portrait, l = landscape, pl (default) = both")
+parser.add_argument("-l", "--loop", type=int, default="1", help="nr. of loops, -1 = loop forever, default=1")
 parser.add_argument("-a", "--age",  type=float, default="-1.0", help="maximal age of file in days. -1.0 (default): all files")
 parser.add_argument("-g", "--gray", type=int, default="0", help="0 (default): color, all else: convert to grayscale")
 parser.add_argument("-r", "--random", type=int, default="0", help="random shuffle. 0 (default): sorted, all else: shuffeled")
@@ -335,6 +383,7 @@ while ((loopCount < args.loop) or (args.loop == -1)):
 
 	IndexFiles = 0
 	running = True
+	Back = False
 
 	while ((IndexFiles >= 0) and (IndexFiles < NumFiles) and running):
 		
@@ -346,11 +395,12 @@ while ((loopCount < args.loop) or (args.loop == -1)):
 		else:
 			(img1, success) = scaleImage(imgName, w+1, h+1)
 		
-		Back = False
+		# Back = False
 		
 		if (success):
-			key = blend (img1, img2, oddEven, args.fade, args.duration)
+			key = blend (img1, img2, oddEven, args.fade, args.duration, args.transition)
 			# print (key)
+			Back = False
 			if ((key == ord('q')) or (key == 27)):
 				print ("interrupted by user")
 				running = False
@@ -365,7 +415,7 @@ while ((loopCount < args.loop) or (args.loop == -1)):
 				
 			oddEven = not oddEven
 		else:
-			print ("Could not read file ", imgName)
+			print ("Skipped ", imgName)
 			
 			
 		if (Back):
@@ -385,7 +435,8 @@ if (oddEven):
 	img2 = black
 else:
 	img1 = black
-blend (img1, img2, oddEven, 2 * args.fade, 0)
+blend (img1, img2, oddEven, 2 * args.fade, 0, "fade")
+cv.waitKey (1000)
 
 print ("Done.")
 cv.destroyAllWindows()
