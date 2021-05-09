@@ -13,11 +13,13 @@ It is a console application which needs a little computer knowledge to use it. I
 
 ## Features:
 
+* 2 transition types available: fade and mask. Try them out!
 * Optionally dig into subdirectories, 
 * Optionally random-shuffle images, 
 * Optionally loop through files, 
 * Copy current path+filename to clipboard, 
 * move back and forward, timed or on keypress, 
+* filter portrait or landscape images, filter newest files, add custom filter (regex)
 * stop transition to see "the third image"
 * optionally write to video (experimental)
 * comiled or interpreted (python) version available 
@@ -41,8 +43,13 @@ optional arguments:
 *  -d DURATION, --duration DURATION
                         time image is shown [seconds]. -1 for manual switching
 *  -f FADE, --fade FADE  time of fading effect [seconds]
+*  -t TRANSITION, --transition TRANSITION
+                        type of transition. fade (default), mask
 *  -l LOOP, --loop LOOP  nr. of loops, -1 = loop forever, default=0
 *  -m MASK, --mask MASK  mask filename (regex syntax)
+*  -pl PORTRAIT_LANDSCAPE, --portrait_landscape PORTRAIT_LANDSCAPE
+                        filter portrait or landscape. p = portrait, l =
+                        landscape, pl (default) = both
 *  -a AGE, --age AGE     maximal age of file in days. -1.0 (default): all files
 *  -g GRAY, --gray GRAY  0 (default): color, all else: convert to grayscale
 *  -r RANDOM, --random RANDOM
@@ -60,4 +67,5 @@ optional arguments:
 backspace=previous, space=next
 ## Bugs and limitations
 * Works well under Windows, problem with detecting screen size under Linux
+* Transition type mask: On some images, parts of the old image remain
 * Todo's: see program code
