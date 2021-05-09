@@ -10,6 +10,10 @@
 # graphical menu 
 # play videos 
 # hide mouse cursor --> not so easy 
+# react to mouse interaction
+# invent some fancy transitions
+# fade time = 0 --> does not switch automatically .... why?
+# change fade and duration at runtime
 
 # done: 
 # subdirectries
@@ -213,8 +217,8 @@ def blend (img1, img2, oddEven, fadeTime, duration):
 						break
 					if ((key == 27) or (key == ord('q'))):
 						quit = True
-				if (duration < 0):
-					break
+				# if (duration < 0):
+					# break
 	
 			
 		return (key)
@@ -224,7 +228,7 @@ def blend (img1, img2, oddEven, fadeTime, duration):
 parser = argparse.ArgumentParser(description = "display all images in folder with nice transitions", epilog = "Esc/q=quit, p=pause on/off, c=copy filename to clipboard, f=freeze on/off, backspace=previous, space=next")
 parser.add_argument("-p", "--path", type=str, default=".", help="path where images are found")
 parser.add_argument("-s", "--subdirs", type=int, default=0, help="depth of subdirectories.  0 (default): no subdirs, -1: all subdirs")
-parser.add_argument("-d", "--duration", type=float, default="5", help="time image is shown [seconds]. 0 for manual switching")
+parser.add_argument("-d", "--duration", type=float, default="5", help="time image is shown [seconds]. -1 for manual switching")
 parser.add_argument("-f", "--fade", type=float, default="1.5", help="time of fading effect [seconds]")
 parser.add_argument("-l", "--loop", type=int, default="1", help="nr. of loops, -1 = loop forever, default=1")
 parser.add_argument("-m", "--mask", type=str, default=".", help="mask filename (regex syntax)")
