@@ -3,7 +3,7 @@
 Create a slide show of images in a folder with smooth transition between images
 
 Download executable for Windows here, if you trust me: http://martinpi.at/games/utils/blending_padding.exe  (it is too large for GitHub),
-compiled with [auto-py-to-exe](https://pypi.org/project/auto-py-to-exe/)
+compiled with [auto-py-to-exe](https://pypi.org/project/auto-py-to-exe/) / pyinstaller
 
 Written in Python3, using opencv
 
@@ -20,6 +20,8 @@ It is a console application which needs a little computer knowledge to use it. I
 * move back and forward, timed or on keypress, 
 * stop transition to see "the third image"
 * optionally write to video (experimental)
+* comiled or interpreted (python) version available 
+* no installation, just run the program (compiled version)
 
 ## command line arguments
 
