@@ -19,6 +19,7 @@ It is a console application which needs a little computer knowledge to use it. I
 * Copy current path+filename to clipboard, 
 * move back and forward, timed or on keypress, 
 * stop transition to see "the third image"
+* optionally write to video (experimental)
 
 ## command line arguments
 
@@ -36,7 +37,7 @@ optional arguments:
                         depth subdirectories. 0 (default): no subdirs, -1: all
                         subdirs
 *  -d DURATION, --duration DURATION
-                        time image is shown [seconds]. 0 for manual switching
+                        time image is shown [seconds]. -1 for manual switching
 *  -f FADE, --fade FADE  time of fading effect [seconds]
 *  -l LOOP, --loop LOOP  nr. of loops, -1 = loop forever, default=0
 *  -m MASK, --mask MASK  mask filename (regex syntax)
