@@ -349,7 +349,7 @@ def setTransitions (transitionsDef):
 		transDict[character] = not transDict[character]
 
 #----------------------------------------------------------------
-parser = argparse.ArgumentParser(description = "display all images in folder with nice transitions", epilog = "Esc/q=quit, p=pause on/off, c=copy filename to clipboard, f=freeze on/off, backspace=previous, space=next")
+parser = argparse.ArgumentParser(description = "display all images in folder with nice transitions", epilog = "Esc/q=quit, p=pause on/off, f=freeze on/off, c=copy filename to clipboard, b/o/n/d/l=change transition, backspace=previous, space=next")
 parser.add_argument("-p", "--path", type=str, default=".", help="path where images are found")
 parser.add_argument("-s", "--subdirs", type=int, default=0, help="depth of subdirectories.  0 (default): no subdirs, -1: all subdirs")
 parser.add_argument("-d", "--duration", type=float, default="5", help="time image is shown [seconds]. -1 for manual switching")
