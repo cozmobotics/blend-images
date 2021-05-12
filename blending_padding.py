@@ -16,9 +16,9 @@
 # change fade and duration at runtime
 # make video-codec selectable by parameter
 # try TAPI / OCL https://learnopencv.com/opencv-transparent-api/
-# transition masked: on some images, parts of old image remain (max. color > 255 ?)
 # light curve(s)
-# mask inverted
+# scripting 
+# change parameters at runtime 
 
 # done: 
 # subdirectries
@@ -35,6 +35,10 @@
 # blend function completely rewritten --> better timing
 # record slideshow as video (still experimental)
 # "c" (copy file location) does not work corretly when moving backwards 
+# mask inverted
+# first and last transition must be a fade
+# syntax for masking effects, random effects
+# transition masked: on some images, parts of old image remain --> workaround
 
 import numpy as np
 import cv2 as cv
@@ -149,7 +153,8 @@ def scaleImage (openName, screenWidth, screenHeight):
 	
 	return (tempImg, success)
 #----------------------------------------------------------------
-def addMasked(img1,bright1,img2,bright2,oddEven):
+def addMasked(img1,bright1,img2,bright2,oddEven, inverted, oldNew):
+	
 	
 	if (not oddEven):
 		imgA = img2
@@ -162,12 +167,19 @@ def addMasked(img1,bright1,img2,bright2,oddEven):
 		brightA = bright1
 		brightB = bright2
 	
-	gray = cv.cvtColor(imgB, cv.COLOR_BGR2GRAY)
-	ret,mask = cv.threshold(gray,int(255 * brightB) + 1,255,cv.THRESH_BINARY)
+	if (oldNew):
+		gray = cv.cvtColor(imgA, cv.COLOR_BGR2GRAY)
+	else:
+		gray = cv.cvtColor(imgB, cv.COLOR_BGR2GRAY)
+
+	
+	if (inverted):
+		ret,mask = cv.threshold(gray,255 - int(255 * brightB) + 1,255,cv.THRESH_BINARY)
+		mask = cv.bitwise_not (mask)
+	else:
+		ret,mask = cv.threshold(gray,int(255 * brightB) + 1,255,cv.THRESH_BINARY)
 
 	if (ret):
-		# mask = cv.bitwise_not (mask) # just another funny effect
-		
 		maskInverted = cv.bitwise_not (mask)
 		maskedA = cv.bitwise_and (imgA, imgA, mask=mask)
 		maskedB = cv.bitwise_and (imgB, imgB, mask=maskInverted)
@@ -178,8 +190,49 @@ def addMasked(img1,bright1,img2,bright2,oddEven):
 	
 	return res
 #----------------------------------------------------------------
+def getWeights (input):
+	if (input < 0.5):
+		a = 0
+		b = input * 2
+	else:
+		a = (input-0.5) * 2
+		b = 1
+		
+	return (a,b)
+#----------------------------------------------------------------
 
 def blend (img1, img2, oddEven, fadeTime, duration, transition):
+		global transDict
+		
+
+
+		if (transition == 'fade'):
+			tempTransDict = {'b': 1,'o': 0,'n': 0,'d': 0,'l': 0}
+		else:
+			possible = []
+			if (transDict['b']): 
+				possible.append ({'b': 1,'o': 0,'n': 0,'d': 0,'l': 0})
+			if (transDict['o']): 
+				if (transDict['d']):
+					possible.append ({'b': 0,'o': 1,'n': 0,'d': 1,'l': 0})
+				if (transDict['l']):
+					possible.append ({'b': 0,'o': 1,'n': 0,'d': 0,'l': 1})
+			if (transDict['n']): 
+				if (transDict['d']):
+					possible.append ({'b': 0,'o': 0,'n': 1,'d': 1,'l': 0})
+				if (transDict['l']):
+					possible.append ({'b': 0,'o': 1,'n': 1,'d': 0,'l': 1})
+			
+			# if nothing is possible, we do a fade
+			if (len (possible) == 0):
+				possible.append ({'b': 1,'o': 0,'n': 0,'d': 0,'l': 0})
+				
+			
+			numPossible = len (possible)
+			transIndex = random.randrange(0, numPossible)
+			tempTransDict = possible[transIndex]
+		
+		# print (tempTransDict)
 		
 		timeNextFrame = time.time() + videoInterval
 		
@@ -189,8 +242,11 @@ def blend (img1, img2, oddEven, fadeTime, duration, transition):
 		else:
 			bright1 = 0
 			bright2 = 1
+
+
 		
-		dst = cv.addWeighted(img1,bright1,img2,bright2,0)  # just to initialize variable dst
+		# dst = cv.addWeighted(img1,bright1,img2,bright2,0)  # just to initialize variable dst
+		dst = img1
 		# cv.imshow('dst',dst)
 
 		quit = False
@@ -216,11 +272,11 @@ def blend (img1, img2, oddEven, fadeTime, duration, transition):
 					bright2 = 1 - bright
 					bright1 = bright
 
-			if (transition == "mask"):
-				dst = addMasked(img1,bright1,img2,bright2,oddEven)
-			else:
+			if (tempTransDict['b']):
 				dst = cv.addWeighted(img1,bright1,img2,bright2,0)
-				
+			else:
+				dst = addMasked(img1,bright1,img2,bright2,oddEven,tempTransDict['l'],tempTransDict['o'])
+			
 			cv.imshow('dst',dst)
 			if ((args.output != '') and (time.time() > timeNextFrame)):
 				out.write(dst)
@@ -232,15 +288,26 @@ def blend (img1, img2, oddEven, fadeTime, duration, transition):
 				
 				if (tempKey == ord ('f')):
 					freeze = not freeze
+					print ('frozen ',freeze, '   ',end = '\r')
 					if (freeze):
 						timeBefore = time.time() - timeStart
 						timeAfter = timeEnd - time.time()
+				elif (chr(tempKey) in 'bondl'):
+					setTransitions (chr(tempKey))
+					# print (chr(tempKey), transDict) # debug
+					tempKey = -1
 				else:
 					key = tempKey
 					
 					
 		
 		# blending finished
+		
+		#workarounf for sime pictures/transitions when parts of the old image remain
+		if (oddEven):
+			cv.imshow ('dst',img2)
+		else:
+			cv.imshow ('dst',img1)
 		
 		if ((key == 27) or (key == ord('q')) or (key == ord(' ')) or (key == 8)):
 			quit = True
@@ -257,6 +324,11 @@ def blend (img1, img2, oddEven, fadeTime, duration, transition):
 			if (tempKey != -1):
 				if (tempKey == ord('p')):
 					pause = not pause
+					print ('pause ',pause, '   ', end = '\r')
+				elif (chr(tempKey) in 'bondl'):
+					setTransitions (chr(tempKey))
+					# print (chr(tempKey), transDict) # debug
+					tempKey = -1
 				else: 
 					key = tempKey
 					if ((key == ord(' ')) or (key == 8)):
@@ -269,6 +341,12 @@ def blend (img1, img2, oddEven, fadeTime, duration, transition):
 			
 		return (key)
 
+#----------------------------------------------------------------
+def setTransitions (transitionsDef):
+	global transDict
+	
+	for character in transitionsDef:
+		transDict[character] = not transDict[character]
 
 #----------------------------------------------------------------
 parser = argparse.ArgumentParser(description = "display all images in folder with nice transitions", epilog = "Esc/q=quit, p=pause on/off, c=copy filename to clipboard, f=freeze on/off, backspace=previous, space=next")
@@ -276,7 +354,7 @@ parser.add_argument("-p", "--path", type=str, default=".", help="path where imag
 parser.add_argument("-s", "--subdirs", type=int, default=0, help="depth of subdirectories.  0 (default): no subdirs, -1: all subdirs")
 parser.add_argument("-d", "--duration", type=float, default="5", help="time image is shown [seconds]. -1 for manual switching")
 parser.add_argument("-f", "--fade", type=float, default="1.5", help="time of fading effect [seconds]")
-parser.add_argument("-t", "--transition", type=str, default="fade", help="type of transition. fade (default), mask")
+parser.add_argument("-t", "--transition", type=str, default="bondl", help="types of transition. Combination of the letters b,o,n,d,l")
 parser.add_argument("-m", "--mask", type=str, default=".", help="mask filename (regex syntax)")
 parser.add_argument("-pl", "--portrait_landscape", type=str, default="pl", help="filter portrait or landscape. p = portrait, l = landscape, pl (default) = both")
 parser.add_argument("-l", "--loop", type=int, default="1", help="nr. of loops, -1 = loop forever, default=1")
@@ -292,6 +370,26 @@ args = parser.parse_args()
 extensionsPhoto = ('.png', '.jpg', '.jpeg', '.jfif', '.tiff', '.bmp' , '.webp', '.gif') 
 steps = 50
 key = 0
+
+
+transDict = {
+	'b': False,			# fade --> blend
+	'o': False,		# maskOld
+	'n': False,		#maskNew
+	'd': False,	# dark
+	'l': False	# light
+}
+
+if (args.transition == "fade"):
+	transitionString = "b"
+elif (args.transition == "mask"):
+	transitionString = "ol"
+elif (args.transition == "imask"):
+	transitionString = "od"
+else: 
+	transitionString = args.transition
+setTransitions(transitionString)
+
 
 if ((args.width > 0) and (args.height > 0)):
 	flag = cv.WND_PROP_AUTOSIZE
@@ -373,6 +471,7 @@ cv.imshow('dst',black)
 cv.waitKey(1000)
 
 oddEven = True
+FirstTime = True
 
 while ((loopCount < args.loop) or (args.loop == -1)):
 
@@ -398,21 +497,26 @@ while ((loopCount < args.loop) or (args.loop == -1)):
 		# Back = False
 		
 		if (success):
-			key = blend (img1, img2, oddEven, args.fade, args.duration, args.transition)
-			# print (key)
+			if (FirstTime):
+				key = blend (img1, img2, oddEven, args.fade, args.duration, "fade")
+			else:
+				key = blend (img1, img2, oddEven, args.fade, args.duration, '')
+			FirstTime = False
 			Back = False
-			if ((key == ord('q')) or (key == 27)):
-				print ("interrupted by user")
-				running = False
+			if (key > 0):
+				print (chr(key))
+				if ((key == ord('q')) or (key == 27)):
+					print ("interrupted by user")
+					running = False
 
-			elif ((key == ord('b')) or (key == 8)):
-				Back = True
-				key = -1
-			elif (key == ord('c')):
-				print ("copying ", imgName, " to clipboard")
-				clipboard.copy (imgName)
-				key = -1
-				
+				elif (key == 8):
+					Back = True
+					key = -1
+				elif (key == ord('c')):
+					print ("copying ", imgName, " to clipboard")
+					clipboard.copy (imgName)
+					key = -1
+			
 			oddEven = not oddEven
 		else:
 			print ("Skipped ", imgName)
@@ -435,7 +539,7 @@ if (oddEven):
 	img2 = black
 else:
 	img1 = black
-blend (img1, img2, oddEven, 2 * args.fade, 0, "fade")
+blend (img1, img2, oddEven, args.fade, 0, "fade")
 cv.waitKey (1000)
 
 print ("Done.")
