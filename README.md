@@ -2,7 +2,7 @@
 
 Create a slide show of images in a folder with smooth transition between images
 
-Download executable for Windows here, if you trust me: http://martinpi.at/games/utils/blending_padding.exe  (it is too large for GitHub),
+Download executable for Windows here, if you trust me: http://martinpi.at/games/utils/blendPics.exe  (it is too large for GitHub),
 compiled with [auto-py-to-exe](https://pypi.org/project/auto-py-to-exe/) / pyinstaller
 
 Written in Python3, using opencv
