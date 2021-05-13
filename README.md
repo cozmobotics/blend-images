@@ -2,6 +2,8 @@
 
 Create a slide show of images in a folder with smooth transition between images
 
+An example output is here: https://youtu.be/OLZAuHpUXRo
+
 Download executable for Windows here, if you trust me: http://martinpi.at/games/utils/blendPics.exe  (it is too large for GitHub),
 compiled with [auto-py-to-exe](https://pypi.org/project/auto-py-to-exe/) / pyinstaller
 
@@ -27,6 +29,8 @@ It is a console application which needs a little computer knowledge to use it. I
 * comiled or interpreted (python) version available 
 * no installation, just run the program (compiled version)
 * leaves no trace on your PC
+
+A detailed explanation of transitions is [here](transitions.md)
 
 ## command line arguments
 
