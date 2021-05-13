@@ -9,16 +9,15 @@
 # display information (height/width, date, filename,...) --> not so easy 
 # graphical menu 
 # play videos 
-# hide mouse cursor --> not so easy 
 # react to mouse interaction
-# invent some fancy transitions
-# fade time = 0 --> does not switch automatically .... why?
+# invent some more fancy transitions
 # change fade and duration at runtime
 # make video-codec selectable by parameter
 # try TAPI / OCL https://learnopencv.com/opencv-transparent-api/
 # light curve(s)
 # scripting 
 # change parameters at runtime 
+# on start, grab screen as first image and do some interesting transitions 
 
 # done: 
 # subdirectries
@@ -39,6 +38,9 @@
 # first and last transition must be a fade
 # syntax for masking effects, random effects
 # transition masked: on some images, parts of old image remain --> workaround
+# change background color when padding images
+# hide mouse cursor --> not so easy --> workaround 
+# fade time = 0 --> does not switch automatically .... why? --> works now. (Don't know why)
 
 import numpy as np
 import cv2 as cv
@@ -48,10 +50,12 @@ import argparse
 import re
 import random
 import clipboard
+import pyautogui
 
 #----------------------------------------------------------------
 # https://forum.opencv.org/t/filename-contains-character/3045/3
 def imread_funny (filename):
+	'''workaround because cv.´imread() cannot handle non-ascii characters (funny characters)'''
 	success = True
 	image = None
 	
@@ -69,6 +73,7 @@ def imread_funny (filename):
 
 #----------------------------------------------------------------
 def writeFileInfo (image, filename):
+	'''not yet used'''
 	text = "filename: " + filename + '\n'
 	text = text + "date: " + '\n'
 	
@@ -99,7 +104,8 @@ def getListOfFiles(dirName, depth):
 	return allFiles        
 
 #----------------------------------------------------------------
-def scaleImage (openName, screenWidth, screenHeight):
+def scaleImage (openName, screenWidth, screenHeight, padColor):
+	'''bring an image to the desired height and width, padding it to adjust for aspect ratio'''
 	c = 3 # workaround 
 	
 	# tempImg = cv.imread(openName)
@@ -137,7 +143,7 @@ def scaleImage (openName, screenWidth, screenHeight):
 		leftRight = int((newWidth  - w)  / 2)
 		color = [0, 0, 0]
 
-		tempImg = cv.copyMakeBorder(tempImg, topBottom, topBottom, leftRight, leftRight, cv.BORDER_CONSTANT, value=color)
+		tempImg = cv.copyMakeBorder(tempImg, topBottom, topBottom, leftRight, leftRight, cv.BORDER_CONSTANT, value=padColor)
 		
 		tempImg = cv.resize(tempImg, (screenWidth, screenHeight), cv.INTER_AREA)
 	# else:
@@ -154,6 +160,7 @@ def scaleImage (openName, screenWidth, screenHeight):
 	return (tempImg, success)
 #----------------------------------------------------------------
 def addMasked(img1,bright1,img2,bright2,oddEven, inverted, oldNew):
+	'''add 2 images by calculating a mask which is derived from one of the images'''
 	
 	
 	if (not oddEven):
@@ -190,25 +197,14 @@ def addMasked(img1,bright1,img2,bright2,oddEven, inverted, oldNew):
 	
 	return res
 #----------------------------------------------------------------
-def getWeights (input):
-	if (input < 0.5):
-		a = 0
-		b = input * 2
-	else:
-		a = (input-0.5) * 2
-		b = 1
-		
-	return (a,b)
-#----------------------------------------------------------------
 
 def blend (img1, img2, oddEven, fadeTime, duration, transition):
+		'''do the actual transition from one image to the other and evaluate users keypresses'''
 		global transDict
-		
+		global rawTransDict
 
 
-		if (transition == 'fade'):
-			tempTransDict = {'b': 1,'o': 0,'n': 0,'d': 0,'l': 0}
-		else:
+		if (transition == ""):
 			possible = []
 			if (transDict['b']): 
 				possible.append ({'b': 1,'o': 0,'n': 0,'d': 0,'l': 0})
@@ -226,11 +222,18 @@ def blend (img1, img2, oddEven, fadeTime, duration, transition):
 			# if nothing is possible, we do a fade
 			if (len (possible) == 0):
 				possible.append ({'b': 1,'o': 0,'n': 0,'d': 0,'l': 0})
-				
-			
+
 			numPossible = len (possible)
 			transIndex = random.randrange(0, numPossible)
 			tempTransDict = possible[transIndex]
+
+		else:
+			tempTransDict =  setTransitions(transition, rawTransDict)
+			# tempTransDict = {'b': 1,'o': 0,'n': 0,'d': 0,'l': 0}
+			# tempTransDict = {'b': 0,'o': 0,'n': 1,'d': 1,'l': 0}
+			
+				
+			
 		
 		# print (tempTransDict)
 		
@@ -293,7 +296,8 @@ def blend (img1, img2, oddEven, fadeTime, duration, transition):
 						timeBefore = time.time() - timeStart
 						timeAfter = timeEnd - time.time()
 				elif (chr(tempKey) in 'bondl'):
-					setTransitions (chr(tempKey))
+					transDict = setTransitions (chr(tempKey), transDict)
+					print ("Transitions: ", listTransitions(transDict))
 					# print (chr(tempKey), transDict) # debug
 					tempKey = -1
 				else:
@@ -303,11 +307,14 @@ def blend (img1, img2, oddEven, fadeTime, duration, transition):
 		
 		# blending finished
 		
-		#workarounf for sime pictures/transitions when parts of the old image remain
+		#workaround for sime pictures/transitions when parts of the old image remain
 		if (oddEven):
-			cv.imshow ('dst',img2)
+			# cv.imshow ('dst',img2)
+			dst = img2
 		else:
-			cv.imshow ('dst',img1)
+			dst = img1
+			# cv.imshow ('dst',img1)
+		cv.imshow ('dst',dst)
 		
 		if ((key == 27) or (key == ord('q')) or (key == ord(' ')) or (key == 8)):
 			quit = True
@@ -326,7 +333,8 @@ def blend (img1, img2, oddEven, fadeTime, duration, transition):
 					pause = not pause
 					print ('pause ',pause, '   ', end = '\r')
 				elif (chr(tempKey) in 'bondl'):
-					setTransitions (chr(tempKey))
+					transDict = setTransitions (chr(tempKey), transDict)
+					print ("Transitions: ", listTransitions(transDict))
 					# print (chr(tempKey), transDict) # debug
 					tempKey = -1
 				else: 
@@ -342,12 +350,54 @@ def blend (img1, img2, oddEven, fadeTime, duration, transition):
 		return (key)
 
 #----------------------------------------------------------------
-def setTransitions (transitionsDef):
-	global transDict
+def setTransitions (transitionsDef, oldDict):
+	'''read a string like bondl and switch entries in transitionsDef according to the letters in the string'''
+	# global transDict
+	newDict = oldDict.copy()
 	
 	for character in transitionsDef:
-		transDict[character] = not transDict[character]
+		newDict[character] = not newDict[character]
+	
+	return (newDict)
 
+#----------------------------------------------------------------
+def listTransitions (dict):
+	'''create a string to output the transitions available'''
+	
+	res = ''
+	keys = dict.keys()
+	
+	for key in keys:
+		if (dict[key]):
+			res = res + key
+			
+	return res
+
+#----------------------------------------------------------------
+def maskingAllowed (dict):
+	'''see if we are allowed to use masking'''
+	
+	return (dict['o'] or dict['n']) and (dict['d'] or dict['l'])
+#----------------------------------------------------------------
+def readBgColor (inString):
+	'''read a string like #aabbcc and convert it to BGR-value (not RGB!)'''
+	if (inString[0] != '#') or (len(inString) != 7):
+		return ([0,0,0])
+	
+	inString = inString[1:7]
+	
+	res = []
+	
+	# for countDoubles in range (3):
+	for countDoubles in range (2,-1,-1):
+		hex = 0
+		substr = inString[2 * countDoubles : 2 * countDoubles + 2]
+		# print (substr)
+		hex = int (substr, 16)
+		# print ('dez:',hex)
+		res.append (hex)
+		
+	return res
 #----------------------------------------------------------------
 parser = argparse.ArgumentParser(description = "display all images in folder with nice transitions", epilog = "Esc/q=quit, p=pause on/off, f=freeze on/off, c=copy filename to clipboard, b/o/n/d/l=change transition, backspace=previous, space=next")
 parser.add_argument("-p", "--path", type=str, default=".", help="path where images are found")
@@ -365,6 +415,8 @@ parser.add_argument("-w", "--width", type=int, default="-1", help="width. -1 (de
 parser.add_argument("-hh", "--height", type=int, default="-1", help="height. -1 (default): automatic")
 parser.add_argument("-o", "--output", type=str, default="", help="output video file (very experimental)")
 parser.add_argument("--fps", type=float, default=30, help="fps of output video (very experimental)")
+parser.add_argument("-bg", "--background", type=str, default="#000000", help="background color in hex values (rgb) like #aabbcc")
+
 args = parser.parse_args()
 
 extensionsPhoto = ('.png', '.jpg', '.jpeg', '.jfif', '.tiff', '.bmp' , '.webp', '.gif') 
@@ -372,7 +424,7 @@ steps = 50
 key = 0
 
 
-transDict = {
+rawTransDict = {
 	'b': False,			# fade --> blend
 	'o': False,		# maskOld
 	'n': False,		#maskNew
@@ -388,7 +440,13 @@ elif (args.transition == "imask"):
 	transitionString = "od"
 else: 
 	transitionString = args.transition
-setTransitions(transitionString)
+transDict = setTransitions(transitionString, rawTransDict)
+print ("Transitions: ", listTransitions(transDict))
+
+if maskingAllowed (transDict):
+	blendString = 'nd'
+else:
+	blendString = 'b'
 
 
 if ((args.width > 0) and (args.height > 0)):
@@ -464,7 +522,10 @@ if (args.random == 0):
 	
 # print (filenames)
 
+bgColor = readBgColor(args.background)
+
 black = np.zeros((h+1, w+1, 3), np.uint8)
+black[:] = bgColor
 img1 = black
 img2 = black
 cv.imshow('dst',black)
@@ -472,6 +533,9 @@ cv.waitKey(1000)
 
 oddEven = True
 FirstTime = True
+
+pyautogui.FAILSAFE = False
+pyautogui.moveTo(0,0) # to hide the mouse cursor
 
 while ((loopCount < args.loop) or (args.loop == -1)):
 
@@ -490,21 +554,21 @@ while ((loopCount < args.loop) or (args.loop == -1)):
 		
 		print ('\nImage nr. ', IndexFiles, ' ', imgName)
 		if oddEven:
-			(img2, success) = scaleImage(imgName, w+1, h+1)
+			(img2, success) = scaleImage(imgName, w+1, h+1, bgColor)
 		else:
-			(img1, success) = scaleImage(imgName, w+1, h+1)
+			(img1, success) = scaleImage(imgName, w+1, h+1, bgColor)
 		
 		# Back = False
 		
 		if (success):
 			if (FirstTime):
-				key = blend (img1, img2, oddEven, args.fade, args.duration, "fade")
+				key = blend (img1, img2, oddEven, args.fade, args.duration, blendString) #{'b': 0,'o': 0,'n': 1,'d': 1,'l': 0})
 			else:
 				key = blend (img1, img2, oddEven, args.fade, args.duration, '')
 			FirstTime = False
 			Back = False
 			if (key > 0):
-				print (chr(key))
+				# print (chr(key))
 				if ((key == ord('q')) or (key == 27)):
 					print ("interrupted by user")
 					running = False
@@ -539,7 +603,14 @@ if (oddEven):
 	img2 = black
 else:
 	img1 = black
-blend (img1, img2, oddEven, args.fade, 0, "fade")
+	
+if maskingAllowed (transDict):
+	blendString = 'od'
+else:
+	blendString = 'b'
+
+
+blend (img1, img2, oddEven, args.fade, 0, blendString ) # {'b': 0,'o': 1,'n': 0,'d': 1,'l': 0})
 cv.waitKey (1000)
 
 print ("Done.")
