@@ -7,13 +7,13 @@ And, no, we don't do roll from left to right and right to left, scroll and jalou
 
 ## Blending
 
-This mimics the goog old slide shows with two slide projectors. The old picture gets darker while the new picture gets lithter until only the new picture is visible. 
-This was done to eliminate the dark pause and on some projectors the shifting out and in. 
+This mimics the good old slide shows with two slide projectors. The old picture gets darker while the new picture gets lithter until only the new picture is visible. 
+This was done to eliminate the dark pause and on some projectors the shifting out and in. This is more comfortable, even nowadays. 
 
 ## Masking
 
 A more sophisticated way to change from one picture to the other is crating a mask which defines which part of the screen shows the old picture and which part shows the new picture. 
-So far, this is not unlike the (boring) scroll, roll and so non effects. 
+So far, this is not unlike the (boring) scroll, roll and so on effects. 
 
 blendPics generates the mask from one of the pictures and fills in the new picture. 
 
@@ -31,7 +31,7 @@ __old__ is the more gentle way of transition.
 
 This option lets you decide if the light or the dark parts of the picture are the first ones to get replaced ("old") or be the first to appear ("new"). 
 
-If you shoose old and dark, you get a strange effect on portraits: The eyes are usually dark, and they are among the first parts where the new picture shines through. 
+If you choose old and dark, you get a strange effect on portraits: The eyes are usually dark, and they are among the first parts where the new picture shines through. 
 This looks spooky. You may like it or not. 
 
 ### The syntax of the --transition parameter
@@ -55,7 +55,7 @@ __l__ means lighter parts of the image  as explained above . At least one of the
 
 So, you can specify combinations like "-t onl" or "-t nd". 
 
-If you write "-t on" without giving an instruction for light or dark, this is invalid. Same to "-t dl" owthout o or n. 
+If you write "old" and/or "new" without giving an instruction for "light" or "dark", this is invalid. Same to "dark" and/or "light" without "old" or "new". 
 In this case, blendPics falls back to blending. So, if you expect masking and only get blending, this will be the cause. 
 
 ### Changing the transitions at runtime
@@ -64,3 +64,5 @@ You can change the effects while the show is playing. Press any of the keys b,o,
 This takes effect on the next transition. 
 
 If an option is already enabled, it will be disabled. If you disable both o and n or both l and d, blendPics falls back to blending. 
+
+When changing the transition methods, the new setting is echoed on the console.  
