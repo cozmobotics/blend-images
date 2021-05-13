@@ -71,6 +71,9 @@ A detailed explanation of transitions is [here](transitions.md)
                         output video file (very experimental)
 *   --fps FPS             fps of output video (very experimental)
 
+*   -bg BACKGROUND, --background BACKGROUND
+                        background color in hex values (rgb) like #aabbcc
+
 * Esc/q=quit, p=pause on/off, f=freeze on/off, c=copy filename to clipboard,
 b/o/n/d/l=change transition, backspace=previous, space=next
 
