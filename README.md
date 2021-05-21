@@ -1,6 +1,6 @@
 # blend-images
 
-Create a slide show of images in a folder with smooth transition between images
+Create a slide show of images with smooth transition between images
 
 An example output is here: https://youtu.be/OLZAuHpUXRo
 
