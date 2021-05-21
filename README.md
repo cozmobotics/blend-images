@@ -13,6 +13,8 @@ It started as an excercise in the [tutorial](https://opencv-python-tutroals.read
 
 It is a console application which needs a little computer knowledge to use it. I suggest to put a batch file onto your desktop which calls blending_padding like you prefer to use it, so you can drag a folder onto the batch to start the slideshow. I plan to add an instructional video. 
 
+__Although it is a console application, all keyboard input goes to the graphical window which must have the focus. The console window is for information only.__
+
 ## Features:
 
 * some transition types available. Try them out!
@@ -80,5 +82,5 @@ b/o/n/d/l=change transition, backspace=previous, space=next
 
 ## Bugs and limitations
 * Works well under Windows, problem with detecting screen size under Linux
-* Transition type mask: On some images, parts of the old image remain
+* No sound (music etc). 
 * Todo's: see program code
