@@ -72,7 +72,7 @@ A detailed explanation of transitions is [here](transitions.md)
 *   -a AGE, --age AGE     maximal age of file in days. -1.0 (default): all files
 *   -g GRAY, --gray GRAY  0 (default): color, all else: convert to grayscale
 *   -r RANDOM, --random RANDOM
-*                         random shuffle. -1 (default): leave as is, 0: sorted,
+                        random shuffle. -1 (default): leave as is, 0: sorted,
                         0..100: shuffle
 *   -i INPUT, --input INPUT
                         input file, containing filenames and parameters
