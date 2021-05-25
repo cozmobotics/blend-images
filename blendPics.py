@@ -53,6 +53,7 @@
 # 2021-05-22 parameter --verbose
 # 2021-05-22 bugfix for pause (pressing space/backspace does not terminate pause)
 # 2021-05-22 on starup, print pwd and parameters
+# 2021-05-25 fixed bug: when writing video, symbol w not found 
 
 import numpy as np
 import cv2 as cv
@@ -268,7 +269,7 @@ def savePic (imgToWrite):
 			pathToWrite = testPath
 	
 	while (not found):
-		filenameToWrite = 'blendPics' + str (count) + '.jpg'
+		filenameToWrite = 'blendPics' + str (count).zfill(4) + '.jpg'
 		filenameToWrite = os.path.join (pathToWrite, filenameToWrite)
 		if (os.path.exists(filenameToWrite)):
 			count = count + 1
@@ -668,13 +669,6 @@ durationTime = args.duration
 convertToGray = args.gray
 
 
-if (args.output != ''):
-	fourcc = cv.VideoWriter_fourcc(*'XVID')
-	out = cv.VideoWriter(args.output, fourcc, args.fps, (w+1,  h+1))
-videoInterval = 1 / args.fps
-
-
-
 if (args.input == ''):
 	if (args.verbose >= 1):
 		print ("searching images...")
@@ -753,6 +747,11 @@ if ((w < 0) or (h < 0)):
 aspectRatioScreen =  (w+1) / (h+1)
 if (args.verbose >= 1):
 	print ('Screen: ', w+1, h+1, "%.2f" % aspectRatioScreen)
+
+if (args.output != ''):
+	fourcc = cv.VideoWriter_fourcc(*'XVID')
+	out = cv.VideoWriter(args.output, fourcc, args.fps, (w+1,  h+1))
+videoInterval = 1 / args.fps
 
 
 bgColor = readBgColor(args.background)
