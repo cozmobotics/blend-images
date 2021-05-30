@@ -34,7 +34,19 @@ This option lets you decide if the light or the dark parts of the picture are th
 If you choose old and dark, you get a strange effect on portraits: The eyes are usually dark, and they are among the first parts where the new picture shines through. 
 This looks spooky. You may like it or not. 
 
-### The syntax of the --transition parameter
+## Inverted
+
+The transitions described above do not change teh colors of the image. Teh next two transitions do change colors. 
+
+This transition inverts the old pixels which are new pixels are light and leaves them normal where the new ones are dark. The mask which determines the new values expands while doing the transition. In the second half of the transition time, the negative image vanishes until only the new picture is visible. 
+
+## XOR
+
+The two images are ex-or-ed (exclusive or), which means that the resulting image i light where the two images are different and dark where tey are similar. 
+
+This results in vividly changing colors and a fancy mixture of the pictures. 
+
+# The syntax of the --transition parameter
 
 The parameter --transition or -t accepts a string which may consitst of the letters b,o,n,d,l. 
 
@@ -49,20 +61,24 @@ __o__ means "old image" as explained above
 
 __n__ means "new image" as explained above. At least one of the options o and n must be enabled. 
 
-__d__ meand darker parts of the image  as explained above. 
+__d__ means darker parts of the image  as explained above. 
 
 __l__ means lighter parts of the image  as explained above . At least one of the options d and l must be enabled. 
+
+__i__ means inverted
+
+__x__ means xor
 
 So, you can specify combinations like "-t onl" or "-t nd". 
 
 If you write "old" and/or "new" without giving an instruction for "light" or "dark", this is invalid. Same to "dark" and/or "light" without "old" or "new". 
 In this case, blendPics falls back to blending. So, if you expect masking and only get blending, this will be the cause. 
 
-### Changing the transitions at runtime
+## Changing the transitions at runtime
 
-You can change the effects while the show is playing. Press any of the keys b,o,n,d,l to change an option. 
+You can change the effects while the show is playing. Press any of the keys b,o,n,d,l,i,x to change an option. 
 This takes effect on the next transition. 
 
 If an option is already enabled, it will be disabled. If you disable both o and n or both l and d, blendPics falls back to blending. 
 
-When changing the transition methods, the new setting is echoed on the console.  
+When changing the transition methods, the new setting is echoed on the console. Changing the method of transition takes effect with the next picture change, i.e. the current transition is completed and the next one changes.  
