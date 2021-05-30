@@ -55,7 +55,7 @@ A detailed explanation of transitions is [here](transitions.md)
 *   -f FADE, --fade FADE  time of fading effect [seconds]
 *   -t TRANSITION, --transition TRANSITION
                         types of transition. Combination of the letters
-                        b,o,n,d,l
+                        b,o,n,d,l,i,x
 *   -m MATCH, --match MATCH
                         mask filename (regex syntax, case insensitive)
 *   -M MATCH, --Match MATCH
@@ -77,9 +77,11 @@ A detailed explanation of transitions is [here](transitions.md)
 *   -i INPUT, --input INPUT
                         input file, containing filenames and parameters
                         (script)
-*   -v VERBOSE, --verbose VERBOSE
+* -v VERBOSE, --verbose VERBOSE
                         verbose ... 0=only errors, 1=print filenames, 1=print
-                        all data
+                        all data*   -v VERBOSE, --verbose VERBOSE
+                        verbose ... 0=only errors, 1=print filenames, 1=print
+                        all data, > 1 ... debug info
 *   -o OUTPUT, --output OUTPUT
                         output video file (very experimental)
 *   -w WIDTH, --width WIDTH
