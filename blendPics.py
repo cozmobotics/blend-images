@@ -20,6 +20,8 @@
 # print compile date, write date tothe \"done\"s
 # when freezing picture, allow to move back and forth 
 # mask with a growing circle --> better for change between landscape and portrait? 
+# transition i: image has white margin (workaround: -bg #808080)
+# copy path: Add to existing cliboard instead of replacing it (C .. add, c..replace)
 
 # done: 
 # subdirectries
@@ -54,6 +56,9 @@
 # 2021-05-22 bugfix for pause (pressing space/backspace does not terminate pause)
 # 2021-05-22 on starup, print pwd and parameters
 # 2021-05-25 fixed bug: when writing video, symbol w not found 
+# 2021-05-29 transitions i (inverted) and x (xor)
+# 2021-05-30 Output of builddate and -time (compiled version only)
+# 2021-05-30 renamed output window from dst to blendPics
 
 import numpy as np
 import cv2 as cv
@@ -179,9 +184,65 @@ def scaleImage (openName, screenWidth, screenHeight, padColor, convertToGray):
 	
 	return (tempImg, success)
 #----------------------------------------------------------------
+def swapColors (inImage, steps):
+	a,b,c = cv.split(inImage)
+	if (steps == 1):
+		swapped = cv.merge ((b,c,a))
+	else:
+		swapped = cv.merge ((c,a,b))
+	return swapped
+
+#----------------------------------------------------------------
+def addInverted(img1,bright1,img2,bright2,oddEven):
+	
+	if (not oddEven):
+		imgA = img2
+		imgB = img1
+		brightA = bright2
+		brightB = bright1
+	else:
+		imgA = img1
+		imgB = img2
+		brightA = bright1
+		brightB = bright2
+
+	if (args.verbose >= 10):
+		print (int(100 * brightB), end = '\r')
+
+	Negative = cv.bitwise_not(imgA) 
+	# Negative = swapColors(imgA,1) 
+	gray = cv.cvtColor(imgB, cv.COLOR_BGR2GRAY)
+	ret,mask = cv.threshold(gray,255 - int(255 * brightA) + 1,255,cv.THRESH_BINARY)
+
+	if (ret):
+		maskInverted = cv.bitwise_not (mask)
+		maskedA = cv.bitwise_and (imgA, imgA, mask=mask)
+		
+		if (brightB > 0.5):
+			Negative = cv.addWeighted(imgB, 2*(brightB -0.5), Negative, 2*brightA, 0)
+		
+		maskedB = cv.bitwise_and (Negative, Negative, mask=maskInverted)
+		res = cv.bitwise_or (maskedA, maskedB)
+		# cv.imshow ('debug', maskedA)
+	else:
+		res = cv.addWeighted(img1,bright1,img2,bright2,0)
+	
+	return res
+
+
+	
+	if (args.verbose >= 10):
+		print (int(100 * brightB), end = '\r')
+
+		cv.imshow ('imgB',imgB)
+		cv.imshow ('imgA',Negative)
+	
+	return res
+
+#----------------------------------------------------------------
 def addXor(img1,bright1,img2,bright2,oddEven):
 	
-	if ( oddEven):
+	if (not oddEven):
 		imgA = img2
 		imgB = img1
 		brightA = bright2
@@ -195,20 +256,25 @@ def addXor(img1,bright1,img2,bright2,oddEven):
 	if (args.verbose >= 10):
 		print (int(100 * brightB), end = '\r')
 
-	cv.imshow ('imgB',imgB)
-	cv.imshow ('imgA',imgA)
+		cv.imshow ('imgB',imgB)
+		cv.imshow ('imgA',imgA)
 
+	subFactor = 400
 	
 	if (brightB < brightA):
-		temp = cv.subtract (imgB, np.array([200 * brightB * 2.0]))
+		temp = cv.subtract (imgB, np.array([subFactor * (brightA - 0.5)]))
 		res = cv.bitwise_xor (temp,imgA)
-		cv.imshow ('B',temp)
-		cv.imshow ('A',imgA)
+		if (args.verbose >= 10):
+				cv.imshow ('B',temp)
+				cv.imshow ('A',imgA)
+				cv.waitKey(1)
 	else:
-		temp = cv.subtract (imgA, np.array([200 * brightA * 2.0]))
+		temp = cv.subtract (imgA, np.array([subFactor * (brightB - 0.5)]))
 		res = cv.bitwise_xor (temp,imgB)
-		cv.imshow ('B',imgB)
-		cv.imshow ('A',temp)
+		if (args.verbose >= 10):
+			cv.imshow ('B',imgB)
+			cv.imshow ('A',temp)
+			cv.waitKey(1)
 	
 	return res
 
@@ -230,8 +296,12 @@ def addMasked(img1,bright1,img2,bright2,oddEven, inverted, oldNew):
 	
 	if (oldNew):
 		gray = cv.cvtColor(imgA, cv.COLOR_BGR2GRAY)
+		# b, g, r = cv.split(imgA)
+		# gray = r
 	else:
 		gray = cv.cvtColor(imgB, cv.COLOR_BGR2GRAY)
+		# b, g, r = cv.split(imgB)
+		# gray = r
 
 	
 	if (inverted):
@@ -315,7 +385,8 @@ def evalKey (key):
 				fadeTime = fadeTime * 1.5
 			if (args.verbose >= 1):
 				print ("fade: ", "%.2f" % fadeTime, end='\r' )
-		elif (key < 128 and chr(key) in 'bondl'):           # < 128 : avoid error when pressing function/cursor keys
+		# elif (key < 128 and chr(key) in 'bondlix'):           # < 128 : avoid error when pressing function/cursor keys
+		elif (key < 128 and chr(key) in all):           # < 128 : avoid error when pressing function/cursor keys
 			transDict = setTransitions (chr(key), transDict)
 			if (args.verbose >= 1):
 				print ("Transitions: ", listTransitions(transDict), end='\r')
@@ -337,19 +408,21 @@ def blend (img1, img2, oddEven, fadeTime, duration, transition):
 		if (transition == ""):
 			possible = []
 			if (transDict['b']): 
-				possible.append ({'b': 1,'o': 0,'n': 0,'d': 0,'l': 0,'x': 0})
+				possible.append ({'b': 1,'o': 0,'n': 0,'d': 0,'l': 0,'i':0,'x': 0})
+			if (transDict['i']): 
+				possible.append ({'b': 0,'o': 0,'n': 0,'d': 0,'l': 0,'i':1,'x': 1})
 			if (transDict['x']): 
-				possible.append ({'b': 0,'o': 0,'n': 0,'d': 0,'l': 0,'x': 1})
+				possible.append ({'b': 0,'o': 0,'n': 0,'d': 0,'l': 0,'i':0,'x': 1})
 			if (transDict['o']): 
 				if (transDict['d']):
-					possible.append ({'b': 0,'o': 1,'n': 0,'d': 1,'l': 0,'x': 0})
+					possible.append ({'b': 0,'o': 1,'n': 0,'d': 1,'l': 0,'i':0,'x': 0})
 				if (transDict['l']):
-					possible.append ({'b': 0,'o': 1,'n': 0,'d': 0,'l': 1,'x': 0})
+					possible.append ({'b': 0,'o': 1,'n': 0,'d': 0,'l': 1,'i':0,'x': 0})
 			if (transDict['n']): 
 				if (transDict['d']):
-					possible.append ({'b': 0,'o': 0,'n': 1,'d': 1,'l': 0,'x': 0})
+					possible.append ({'b': 0,'o': 0,'n': 1,'d': 1,'l': 0,'i':0,'x': 0})
 				if (transDict['l']):
-					possible.append ({'b': 0,'o': 0,'n': 1,'d': 0,'l': 1,'x': 0})
+					possible.append ({'b': 0,'o': 0,'n': 1,'d': 0,'l': 1,'i':0,'x': 0})
 			
 			# if nothing is possible, we do a fade
 			if (len (possible) == 0):
@@ -408,12 +481,14 @@ def blend (img1, img2, oddEven, fadeTime, duration, transition):
 
 			if (tempTransDict['b']):
 				dst = cv.addWeighted(img1,bright1,img2,bright2,0)
+			elif (tempTransDict['i']):
+				dst = addInverted(img1,bright1,img2,bright2,oddEven)
 			elif (tempTransDict['x']):
 				dst = addXor(img1,bright1,img2,bright2,oddEven)
 			else:
 				dst = addMasked(img1,bright1,img2,bright2,oddEven,tempTransDict['l'],tempTransDict['o'])
 			
-			cv.imshow('dst',dst)
+			cv.imshow('blendPics',dst)
 			if ((args.output != '') and (time.time() > timeNextFrame)):
 				out.write(dst)
 				timeNextFrame = timeNextFrame + videoInterval
@@ -438,7 +513,8 @@ def blend (img1, img2, oddEven, fadeTime, duration, transition):
 							timeBefore = timeBefore - fadeTime / 10
 							timeAfter  = timeAfter - fadeTime / 10
 					tempKey = -1
-				elif (tempKey < 128 and chr(tempKey) in 'bondl'):
+				# elif (tempKey < 128 and chr(tempKey) in 'bondlix'):
+				elif (tempKey < 128 and chr(tempKey) in all):
 					transDict = setTransitions (chr(tempKey), transDict)
 					if (args.verbose >= 1):
 						print ("Transitions: ", listTransitions(transDict))
@@ -456,12 +532,12 @@ def blend (img1, img2, oddEven, fadeTime, duration, transition):
 		
 		#workaround for some pictures/transitions when parts of the old image remain
 		if (oddEven):
-			# cv.imshow ('dst',img2)
+			# cv.imshow ('blendPics',img2)
 			dst = img2
 		else:
 			dst = img1
-			# cv.imshow ('dst',img1)
-		cv.imshow ('dst',dst)
+			# cv.imshow ('blendPics',img1)
+		cv.imshow ('blendPics',dst)
 		
 		# if ((key == 27) or (key == ord('q')) or (key == ord(' ')) or (key == 8)):
 		if (key in (27,ord('q'),32,8,KEY_LEFT,KEY_RIGHT)):
@@ -493,7 +569,7 @@ def blend (img1, img2, oddEven, fadeTime, duration, transition):
 
 #----------------------------------------------------------------
 def setTransitions (transitionsDef, oldDict):
-	'''read a string like bondl and switch entries in transitionsDef according to the letters in the string'''
+	'''read a string like bondlix and switch entries in transitionsDef according to the letters in the string'''
 	# global transDict
 	newDict = oldDict.copy()
 	
@@ -579,7 +655,7 @@ parser.add_argument("-p", "--path", type=str, default=".", help="path where imag
 parser.add_argument("-s", "--subdirs", type=int, default=0, help="depth of subdirectories.  0 (default): no subdirs, -1: all subdirs")
 parser.add_argument("-d", "--duration", type=float, default="5", help="time image is shown [seconds]. -1 for manual switching")
 parser.add_argument("-f", "--fade", type=float, default="1.5", help="time of fading effect [seconds]")
-parser.add_argument("-t", "--transition", type=str, default="bondl", help="types of transition. Combination of the letters b,o,n,d,l")
+parser.add_argument("-t", "--transition", type=str, default="all", help="types of transition. Combination of the letters b,o,n,d,l,i,x")
 parser.add_argument("-m", "--match", type=str, default=".", help="mask filename (regex syntax, case insensitive)")
 parser.add_argument("-M", "--Match", type=str, default=".", help="mask filename (regex syntax, case sensitive)")
 parser.add_argument("-n", "--notmatch", type=str, default="", help="negative mask filename (regex syntax, case insensitive)")
@@ -630,11 +706,12 @@ if (args.verbose >= 1):
 	print ("*******************************")
 	print ("")
 	print ('current working directory: ', os.getcwd(), ', command line parameters:', sys.argv)
-# try:
-	# import builddate
-	# print ("Version from ", builddateString)
-# except ImportError:
-	# pass
+
+	try:
+		from builddate import builddateString
+		print ("Version from ", builddateString)
+	except ImportError:
+		pass
 
 
 rawTransDict = {
@@ -643,10 +720,13 @@ rawTransDict = {
 	'n': False,		#maskNew
 	'd': False,	# dark
 	'l': False,	# light
+	'i': False,	# invert
 	'x': False	# xor
 }
-
-if (args.transition == "fade"):
+all = "bondlix"
+if (args.transition == "all"):
+	transitionString = all
+elif (args.transition == "fade"):
 	transitionString = "b"
 elif (args.transition == "mask"):
 	transitionString = "ol"
@@ -740,10 +820,10 @@ else:
 
 
 # Window in full-screen-mode, determine aspect ratio of screen
-cv.namedWindow("dst", flag)
-cv.setWindowProperty("dst",flag,mode)
+cv.namedWindow('blendPics', flag)
+cv.setWindowProperty('blendPics',flag,mode)
 if ((w < 0) or (h < 0)):
-	(a,b,w,h) = cv.getWindowImageRect('dst')
+	(a,b,w,h) = cv.getWindowImageRect('blendPics')
 aspectRatioScreen =  (w+1) / (h+1)
 if (args.verbose >= 1):
 	print ('Screen: ', w+1, h+1, "%.2f" % aspectRatioScreen)
@@ -760,7 +840,7 @@ black = np.zeros((h+1, w+1, 3), np.uint8)
 black[:] = bgColor
 img1 = black
 img2 = black
-cv.imshow('dst',black)
+cv.imshow('blendPics',black)
 cv.waitKey(1000)
 
 oddEven = True
