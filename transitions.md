@@ -40,6 +40,8 @@ The transitions described above do not change teh colors of the image. Teh next 
 
 This transition inverts the old pixels which are new pixels are light and leaves them normal where the new ones are dark. The mask which determines the new values expands while doing the transition. In the second half of the transition time, the negative image vanishes until only the new picture is visible. 
 
+When the margin of the picture is black, inverting it turns it to white. Changing this behavior is on the todo-list, in the meantime you can workaround by using #808080 as background color. 
+
 ## XOR
 
 The two images are ex-or-ed (exclusive or), which means that the resulting image i light where the two images are different and dark where tey are similar. 
