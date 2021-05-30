@@ -36,11 +36,11 @@ __Although it is a console application, all keyboard input goes to the graphical
 A detailed explanation of transitions is [here](transitions.md)
 
 ## command line arguments
-* usage: blendPics.exe [-h] [-p PATH] [-s SUBDIRS] [-d DURATION] [-f FADE]
-                     [-t TRANSITION] [-m MATCH] [-M MATCH] [-n NOTMATCH]
-                     [-N NOTMATCH] [-pl PORTRAIT_LANDSCAPE] [-l LOOP] [-a AGE]
-                     [-g GRAY] [-r RANDOM] [-i INPUT] [-v VERBOSE] [-o OUTPUT]
-                     [-w WIDTH] [-hh HEIGHT] [--fps FPS] [-bg BACKGROUND]
+* usage: blendPics.py [-h] [-p PATH] [-s SUBDIRS] [-d DURATION] [-f FADE]
+                    [-t TRANSITION] [-m MATCH] [-M MATCH] [-n NOTMATCH]
+                    [-N NOTMATCH] [-pl PORTRAIT_LANDSCAPE] [-l LOOP] [-a AGE]
+                    [-g GRAY] [-r RANDOM] [-i INPUT] [-v VERBOSE] [-o OUTPUT]
+                    [-w WIDTH] [-hh HEIGHT] [--fps FPS] [-bg BACKGROUND]
 
 * display all images in folder with nice transitions
 
