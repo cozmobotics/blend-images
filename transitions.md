@@ -52,7 +52,7 @@ This results in vividly changing colors and a fancy mixture of the pictures.
 
 The parameter --transition or -t accepts a string which may consitst of the letters b,o,n,d,l. 
 
-The order of the letters is not relevant, "ol" is the same as "lo". If there are excessive characters like "x" or so, they are ignored. 
+The order of the letters is not relevant, "ol" is the same as "lo". If there are excessive characters like "u" or so, they are ignored. 
 Doubling a letter makes no sense, the second occurance of a letter will revert the effect of the first one. 
 
 By default, all effects are enabled. You can change this by supplying a --transition or -t parameter. If more than one possibility exists, the effect is chosen randomly. 
