@@ -103,4 +103,5 @@ fade-time/duration
 * Works well under Windows, problem with detecting screen size under Linux
 * No sound (music etc). 
 * White line on top and left margin when running in full-screen
+* No error detection when video is not writable (e.g. disk full)
 * Todo's: see program code
