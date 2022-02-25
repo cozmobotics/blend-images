@@ -11,7 +11,7 @@ Written in Python3, using opencv
 
 It started as an excercise in the [tutorial](https://docs.opencv.org/master/d0/d86/tutorial_py_image_arithmetics.html "Arithmetic Operations")
 
-It is a console application which needs a little computer knowledge to use it. I suggest to put a batch file onto your desktop which calls blending_padding like you prefer to use it, so you can drag a folder onto the batch to start the slideshow. Instructional video (in German) is here: https://youtu.be/I6BX8PdTSBU 
+It is a console application which needs a little computer knowledge to use it. I suggest to put a batch file onto your desktop which calls blendPics like you prefer to use it, so you can drag a folder onto the batch to start the slideshow. Instructional video (in German) is here: https://youtu.be/I6BX8PdTSBU 
 
 __Although it is a console application, all keyboard input goes to the graphical window which must have the focus. The console window is for information only.__
 
@@ -32,15 +32,18 @@ __Although it is a console application, all keyboard input goes to the graphical
 * comiled or interpreted (python) version available 
 * no installation, just run the program (compiled version)
 * leaves no trace on your PC
+* optionally disable screensaver while show is running (Windows only)
+* optionally leave screen black after last picture, wait for keypress
 
 A detailed explanation of transitions is [here](transitions.md)
 
 ## command line arguments
 * usage: blendPics.py [-h] [-p PATH] [-s SUBDIRS] [-d DURATION] [-f FADE]
-                    [-t TRANSITION] [-m MATCH] [-M MATCH] [-n NOTMATCH]
-                    [-N NOTMATCH] [-pl PORTRAIT_LANDSCAPE] [-l LOOP] [-a AGE]
-                    [-g GRAY] [-r RANDOM] [-i INPUT] [-v VERBOSE] [-o OUTPUT]
-                    [-w WIDTH] [-hh HEIGHT] [--fps FPS] [-bg BACKGROUND]
+                 [-t TRANSITION] [-m MATCH] [-M MATCH] [-n NOTMATCH]
+                 [-N NOTMATCH] [-pl PORTRAIT_LANDSCAPE] [-l LOOP]
+                 [--limit LIMIT] [-a AGE] [-g GRAY] [-r RANDOM] [-i INPUT]
+                 [-v VERBOSE] [-o OUTPUT] [-w WIDTH] [-hh HEIGHT] [--fps FPS]
+                 [-bg BACKGROUND] [-b BLACKOUT] [-ss SCREENSAVER]
 
 * display all images in folder with nice transitions
 
@@ -91,6 +94,13 @@ A detailed explanation of transitions is [here](transitions.md)
 *   --fps FPS             fps of output video (very experimental)
 *   -bg BACKGROUND, --background BACKGROUND
                         background color in hex values (rgb) like #aabbcc
+*  -bg BACKGROUND, --background BACKGROUND
+                        background color in hex values (rgb) like #0fcc80
+*  -b BLACKOUT, --blackout BLACKOUT
+                        yes/no. At the end of the show, keep the window dark
+                        until a key is pressed. Default = yes
+*  -ss SCREENSAVER, --screensaver SCREENSAVER
+                        yes/no. Disable screensaver. Default = yes
 
 Esc/q=quit, p=pause on/off, f=freeze on/off, s(while blending)=save picture,
 c=copy filename to clipboard, b/o/n/d/l=change transition, left arrow or
