@@ -2,9 +2,11 @@
 
 Create a slide show of images with smooth transition between images
 
+Available as screensaver (NEW!) and standalone application
+
 An example output is here: https://youtu.be/OLZAuHpUXRo
 
-Download executable for Windows here, if you trust me: http://martinpi.at/games/utils/blendPics.exe  (it is too large for GitHub),
+Download executable for Windows here, if you trust me: http://martinpi.at/games/utils/blendPics.exe and http://martinpi.at/games/utils/blendPicsScr.exe (it is too large for GitHub), 
 compiled with [auto-py-to-exe](https://pypi.org/project/auto-py-to-exe/) / pyinstaller
 
 Written in Python3, using opencv
@@ -12,6 +14,8 @@ Written in Python3, using opencv
 It started as an excercise in the [tutorial](https://docs.opencv.org/master/d0/d86/tutorial_py_image_arithmetics.html "Arithmetic Operations")
 
 It is a console application which needs a little computer knowledge to use it. I suggest to put a batch file onto your desktop which calls blendPics like you prefer to use it, so you can drag a folder onto the batch to start the slideshow. Instructional video (in German) is here: https://youtu.be/I6BX8PdTSBU 
+
+For installing the screensaver, see the comments in blendPicsScr.py 
 
 __Although it is a console application, all keyboard input goes to the graphical window which must have the focus. The console window is for information only.__
 
