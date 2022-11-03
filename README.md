@@ -119,3 +119,5 @@ fade-time/duration
 * White line on top and left margin when running in full-screen
 * No error detection when video is not writable (e.g. disk full)
 * Todo's: see program code
+* Screensaver reacts only to keystrokes, not to mouse movements
+* Screensaver's search directory is hard-coded to userdir/Pictures, configuration dialog is not yet implemented
