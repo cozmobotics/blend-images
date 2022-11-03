@@ -14,7 +14,7 @@
 # make video-codec selectable by parameter
 # try TAPI / OCL https://learnopencv.com/opencv-transparent-api/
 # change parameters at runtime 
-# on start, grab screen as first image and do some interesting transitions 
+# on start, grab (capture) screen as first image and do some interesting transitions 
 # sort images by date, aspect ratio,...
 # print compile date, write date tothe \"done\"s
 # when freezing picture, allow to move back and forth 
@@ -25,6 +25,7 @@
 # allow multiple keypresses (like c and p) to be evaluated with one picture 
 # when playing from a list of pictures, the first picture is not blended in but starts immediately
 # use mouse to switch to next picture 
+# when scanning for files, write file list to disk. Write date of each subdir. On startup, compare subdir dates and re-scan newer subdirs
 
 # done: 
 # subdirectries
@@ -70,9 +71,15 @@
 # 2022-02-25 enable/disable screensaver 
 # 2022-02-25 limit show to (approx.) time
 # 2022-02-25 "blackout": leave screen black after last picture, wait for keypress
+# 2022-10-30 plendPics.py is usable as a python mudule 
+# 2022-10-30 Screensaver blendPicsScr.py imports plendPics.py 
+# 2022-10-30 Screensaver-mode --scr (immediately stop with any key pressed (mouse not yet implemented))
+# 2022-11-02 key "?" writes filename and -path on screen (redundant, Alt-Tab does the same)
+# 2022-11-03 Screensaver-mode: quit on mouse activity
 
 import numpy as np
 import cv2 as cv
+from PIL import ImageGrab
 import time
 import os
 import argparse
@@ -351,6 +358,7 @@ def evalKey (key):
 	global durationTime
 	global fadeTime
 	global transDict
+	global all
 	
 	if (key > 0):
 		if (key == ord('g')):
@@ -392,15 +400,52 @@ def evalKey (key):
 	return -1
 
 #----------------------------------------------------------------
+def writeToPic(imageToWtriteTo, textToWrite):
+	new_image = cv.putText(
+	img = imageToWtriteTo,
+	text = textToWrite,
+	org = (200, 200),
+	fontFace = cv.FONT_HERSHEY_DUPLEX,
+	fontScale = 1.0,
+	color = (125, 246, 55),
+	thickness = 1
+	)
+	
+	cv.imshow ('blendPics', new_image)
 
-def blend (img1, img2, fadeTime, duration, transition):
+
+#----------------------------------------------------------------
+
+def blend (img1, img2, fadeTime, duration, transition, description):
 		'''do the actual transition from one image to the other and evaluate users keypresses'''
 		global transDict
 		global rawTransDict
 		global pause
 		global debugFrameCounter
+		global videoInterval
 		global out
+		global args
 
+		global KEY_UP   
+		global KEY_DOWN 
+		global KEY_LEFT 
+		global KEY_RIGHT
+		global KEY_F1   
+		global KEY_F2   
+		global KEY_F3   
+		global KEY_F4   
+		global KEY_F5   
+		global KEY_F6   
+		global KEY_F7   
+		global KEY_F8   
+		global KEY_F9   
+		global KEY_F11  
+		global KEY_F12  
+		global KEY_F1   
+		global KEY_PGUP 
+		global KEY_PGDN 
+		global KEY_HOME 
+		global KEY_END  
 
 		if (transition == ""):
 			possible = []
@@ -486,6 +531,11 @@ def blend (img1, img2, fadeTime, duration, transition):
 			if (tempKey != -1):
 				key = tempKey
 				
+				if (args.scr == "yes"):	# when blendPics acts as screensaver, quit immediately
+					if (args.verbose > 1):
+						print ("screensaver mode, stopping immediately")
+					sys.exit()	
+				
 				if (tempKey == ord ('f')):
 					freeze = not freeze
 					if (args.verbose >= 1):
@@ -537,6 +587,12 @@ def blend (img1, img2, fadeTime, duration, transition):
 			
 			tempKey = cv.waitKeyEx(1)
 			
+			if ((tempKey != -1) and(args.scr == "yes")):	# when blendPics acts as screensaver, quit immediately
+				if (args.verbose > 1):
+					print ("screensaver mode, stopping immediately")
+				sys.exit()	
+
+			
 			tempKey = evalKey (tempKey)
 			
 			if (tempKey == ord('p')):
@@ -549,6 +605,8 @@ def blend (img1, img2, fadeTime, duration, transition):
 					break
 				if ((key == 27) or (key == ord('q'))):
 					quit = True
+				if (tempKey == ord('?')):
+					writeToPic (img2, description)
 		# print ("key:", key)
 		return (key)
 
@@ -642,71 +700,109 @@ def bubbleShuffle (arrayAll, randomPercent, probability):
 	return array
 
 #----------------------------------------------------------------
-rawTransDict = {
-	'b': False,			# fade --> blend
-	'o': False,		# maskOld
-	'n': False,		#maskNew
-	'd': False,	# dark
-	'l': False,	# light
-	'i': False,	# invert
-	'x': False	# xor
-}
-
-KEY_UP   = 0x260000
-KEY_DOWN = 0x280000
-KEY_LEFT = 0x250000
-KEY_RIGHT= 0x270000
-KEY_F1   = 0x700000
-KEY_F2   = 0x710000
-KEY_F3   = 0x720000
-KEY_F4   = 0x730000
-KEY_F5   = 0x740000
-KEY_F6   = 0x750000
-KEY_F7   = 0x760000
-KEY_F8   = 0x770000
-KEY_F9   = 0x780000
-KEY_F11  = 0x790000
-KEY_F12  = 0x7a0000
-KEY_F1   = 0x7b0000
-KEY_PGUP = 0x210000
-KEY_PGDN = 0x220000
-KEY_HOME = 0x240000
-KEY_END  = 0x230000
-
-extensionsPhoto = ('.png', '.jpg', '.jpeg', '.jfif', '.tiff', '.bmp' , '.webp', '.gif') 
-extensionsVideo = ('.mp4', '.mpeg', '.avi', '.mov') 
-
+def mouseEvent (event,x,y,flags,param):
+	global args
+	global mouseCount
+	global mouseOldX
+	global mouseOldY
+	
+	if mouseCount == 0:
+		mouseOldX = x
+		mouseOldY = y
+	else:
+		if (abs (mouseOldX - x) > 10) or (abs (mouseOldY - y) > 10):
+			if (args.verbose > 1):
+				print ("screensaver mode, mouse moved, stopping immediately")
+			sys.exit()	
+		
+	mouseCount = mouseCount + 1
+	
+	if (args.verbose > 1):
+		print (event,x,y,flags,param)
+	
+	if (args.scr == "yes") and (event != 0):	# when blendPics acts as screensaver, quit immediately
+		if (args.verbose > 1):
+			print ("screensaver mode, mouse clicked, stopping immediately")
+		sys.exit()	
 #----------------------------------------------------------------
+def doIt (argumentsDoIt):
+	global videoInterval
+	global pause
+	global transDict
+	global rawTransDict
+	global all
+	global args
+	global convertToGray
+	
+	global mouseCount
+	global mouseOldX
+	global mouseOldY
 
-if __name__ == "__main__":
-	parser = argparse.ArgumentParser(description = "display all images in folder with nice transitions", epilog = "Esc/q=quit, p=pause on/off, f=freeze on/off, s(while blending)=save picture, c=copy filename to clipboard, b/o/n/d/l=change transition, left arrow or backspace=previous, right arrow or space=next, F2,F3,F4,F5=decrease/increase fade-time/duration" )
-	parser.add_argument("-p", "--path", type=str, default=".", help="path where images are found")
-	parser.add_argument("-s", "--subdirs", type=int, default=0, help="depth of subdirectories.  0 (default): no subdirs, -1: all subdirs")
-	parser.add_argument("-d", "--duration", type=float, default="5", help="time image is shown [seconds]. -1 for manual switching")
-	parser.add_argument("-f", "--fade", type=float, default="1.5", help="time of fading effect [seconds]")
-	parser.add_argument("-t", "--transition", type=str, default="all", help="types of transition. Combination of the letters b,o,n,d,l,i,x")
-	parser.add_argument("-m", "--match", type=str, default=".", help="mask filename (regex syntax, case insensitive)")
-	parser.add_argument("-M", "--Match", type=str, default=".", help="mask filename (regex syntax, case sensitive)")
-	parser.add_argument("-n", "--notmatch", type=str, default="", help="negative mask filename (regex syntax, case insensitive)")
-	parser.add_argument("-N", "--NotMatch", type=str, default="", help="negative mask filename (regex syntax, case sensitive)")
-	parser.add_argument("-pl", "--portrait_landscape", type=str, default="pl", help="filter portrait or landscape. p = portrait, l = landscape, pl (default) = both")
-	parser.add_argument("-l", "--loop", type=int, default="1", help="nr. of loops, -1 = loop forever, default=1")
-	parser.add_argument("--limit", type=int, default="-1", help="limit length of show to minutes (approx.) by randomly skipping images and maintaining the order ")
-	parser.add_argument("-a", "--age",  type=float, default="-1.0", help="maximal age of file in days. -1.0 (default): all files")
-	parser.add_argument("-g", "--gray", type=int, default="0", help="0 (default): color, all else: convert to grayscale")
-	parser.add_argument("-r", "--random", type=int, default="-1", help="random shuffle. -1 (default): leave as is = depth-first-search, 0: sorted, 0..100: shuffle")
-	parser.add_argument("-i", "--input", type=str, default="", help="input file, containing filenames and parameters (script)")
-	parser.add_argument("-v", "--verbose", type=int, default="1", help="verbose ... 0=only errors, 1(Default)=print filenames, higher numbers = more information")
-	parser.add_argument("-o", "--output", type=str, default="", help="output video file (very experimental)")
-	parser.add_argument("-w", "--width", type=int, default="-1", help="width. -1 (default): automatic")
-	parser.add_argument("-hh", "--height", type=int, default="-1", help="height. -1 (default): automatic")
-	parser.add_argument("--fps", type=float, default=30.0, help="fps of output video (very experimental)")
-	parser.add_argument("-bg", "--background", type=str, default="#000000", help="background color in hex values (rgb) like #0fcc80")
-	parser.add_argument("-b", "--blackout", type=str, default="yes", help="yes/no. At the end of the show, keep the window dark until a key is pressed. Default = yes")
-	parser.add_argument("-ss", "--screensaver", type=str, default="yes", help="yes/no. Disable screensaver. Default = yes")
+	
+	args = argumentsDoIt
 
-	args = parser.parse_args()
+	rawTransDict = {
+		'b': False,			# fade --> blend
+		'o': False,		# maskOld
+		'n': False,		#maskNew
+		'd': False,	# dark
+		'l': False,	# light
+		'i': False,	# invert
+		'x': False	# xor
+	}
 
+	global KEY_UP   
+	global KEY_DOWN 
+	global KEY_LEFT 
+	global KEY_RIGHT
+	global KEY_F1   
+	global KEY_F2   
+	global KEY_F3   
+	global KEY_F4   
+	global KEY_F5   
+	global KEY_F6   
+	global KEY_F7   
+	global KEY_F8   
+	global KEY_F9   
+	global KEY_F11  
+	global KEY_F12  
+	global KEY_F1   
+	global KEY_PGUP 
+	global KEY_PGDN 
+	global KEY_HOME 
+	global KEY_END  
+
+	KEY_UP   = 0x260000
+	KEY_DOWN = 0x280000
+	KEY_LEFT = 0x250000
+	KEY_RIGHT= 0x270000
+	KEY_F1   = 0x700000
+	KEY_F2   = 0x710000
+	KEY_F3   = 0x720000
+	KEY_F4   = 0x730000
+	KEY_F5   = 0x740000
+	KEY_F6   = 0x750000
+	KEY_F7   = 0x760000
+	KEY_F8   = 0x770000
+	KEY_F9   = 0x780000
+	KEY_F11  = 0x790000
+	KEY_F12  = 0x7a0000
+	KEY_F1   = 0x7b0000
+	KEY_PGUP = 0x210000
+	KEY_PGDN = 0x220000
+	KEY_HOME = 0x240000
+	KEY_END  = 0x230000
+	
+	mouseCount = 0
+	mouseOldX = 0
+	mouseOldY = 0
+	
+	
+	
+	
+
+	extensionsPhoto = ('.png', '.jpg', '.jpeg', '.jfif', '.tiff', '.bmp' , '.webp', '.gif') 
+	extensionsVideo = ('.mp4', '.mpeg', '.avi', '.mov') 
 
 
 	key = 0
@@ -726,7 +822,6 @@ if __name__ == "__main__":
 
 	if ("Y" in args.screensaver.upper()):
 		EnableScreenSaver(0)
-
 
 	all = "bondlix"
 	if (args.transition == "all"):
@@ -756,7 +851,7 @@ if __name__ == "__main__":
 
 	if (args.input == ''):
 		if (args.verbose >= 1):
-			print ("searching images...")
+			print ("searching images on " + args.path + "...")
 		fileList = getListOfFiles(args.path, args.subdirs)
 
 		filenamesAll = []
@@ -801,7 +896,7 @@ if __name__ == "__main__":
 			inputList = open (args.input,'r')
 		except Exception as e:
 			print (e)
-			exit() #++++ syntax error
+			sys.exit() 
 		filenames = inputList.readlines()
 		filenamesAll = filenames
 		inputList.close()
@@ -818,7 +913,7 @@ if __name__ == "__main__":
 	if (args.verbose >= 1):
 		print (NumFiles, "files found", " total duration approx", LenShow, " minutes,  limiting to ", args.limit, " minutes. Probability=", int(probability), "%")
 	if (NumFiles == 0):
-		exit()
+		sys.exit()
 
 	if ((args.width > 0) and (args.height > 0)):
 		flag = cv.WND_PROP_AUTOSIZE
@@ -842,6 +937,8 @@ if __name__ == "__main__":
 	if (args.verbose >= 1):
 		print ('Screen: ', w+1, h+1, "%.2f" % aspectRatioScreen)
 
+	# cv.setMouseCallback('blendPics',mouseEvent) # +++ doesn' work 
+
 	if (args.output != ''):
 		fourcc = cv.VideoWriter_fourcc(*'XVID')
 		out = cv.VideoWriter(args.output, fourcc, args.fps, (w+1,  h+1))
@@ -853,6 +950,12 @@ if __name__ == "__main__":
 
 	black = np.zeros((h+1, w+1, 3), np.uint8)
 	black[:] = bgColor
+	
+	# grab screen ++++ does not yet work 
+	# screen = np.array(ImageGrab.grab(bbox=(0,0,w,h)))
+	# img1 = screen
+	# img2 = screen
+	
 	img1 = black
 	img2 = black
 	cv.imshow('blendPics',black)
@@ -909,9 +1012,9 @@ if __name__ == "__main__":
 			
 			if (success):
 				if (FirstTime):
-					key = blend (img1, img2, fadeTime, durationTime, blendString) #{'b': 0,'o': 0,'n': 1,'d': 1,'l': 0})
+					key = blend (img1, img2, fadeTime, durationTime, blendString, imgName) #{'b': 0,'o': 0,'n': 1,'d': 1,'l': 0})
 				else:
-					key = blend (img1, img2, fadeTime, durationTime, '')
+					key = blend (img1, img2, fadeTime, durationTime, '', imgName)
 				FirstTime = False
 				Back = False
 				if (key > 0):
@@ -968,7 +1071,7 @@ if __name__ == "__main__":
 		blendString = 'b'
 
 
-	blend (img1, img2, fadeTime, 0, blendString ) # {'b': 0,'o': 1,'n': 0,'d': 1,'l': 0})
+	blend (img1, img2, fadeTime, 0, blendString, imgName ) # {'b': 0,'o': 1,'n': 0,'d': 1,'l': 0})
 	cv.waitKey (1000)
 
 	if (args.verbose >= 1):
@@ -985,4 +1088,41 @@ if __name__ == "__main__":
 	
 	if ("Y" in args.screensaver.upper()):
 		EnableScreenSaver(1)
+
+#----------------------------------------------------------------
+
+if __name__ == "__main__":
+	parser = argparse.ArgumentParser(description = "display all images in folder with nice transitions", epilog = "Esc/q=quit, p=pause on/off, f=freeze on/off, s(while blending)=save picture, c=copy filename to clipboard, b/o/n/d/l=change transition, left arrow or backspace=previous, right arrow or space=next, F2,F3,F4,F5=decrease/increase fade-time/duration" )
+	parser.add_argument("-p", "--path", type=str, default=".", help="path where images are found")
+	parser.add_argument("-s", "--subdirs", type=int, default=0, help="depth of subdirectories.  0 (default): no subdirs, -1: all subdirs")
+	parser.add_argument("-d", "--duration", type=float, default="5", help="time image is shown [seconds]. -1 for manual switching")
+	parser.add_argument("-f", "--fade", type=float, default="1.5", help="time of fading effect [seconds]")
+	parser.add_argument("-t", "--transition", type=str, default="all", help="types of transition. Combination of the letters b,o,n,d,l,i,x")
+	parser.add_argument("-m", "--match", type=str, default=".", help="mask filename (regex syntax, case insensitive)")
+	parser.add_argument("-M", "--Match", type=str, default=".", help="mask filename (regex syntax, case sensitive)")
+	parser.add_argument("-n", "--notmatch", type=str, default="", help="negative mask filename (regex syntax, case insensitive)")
+	parser.add_argument("-N", "--NotMatch", type=str, default="", help="negative mask filename (regex syntax, case sensitive)")
+	parser.add_argument("-pl", "--portrait_landscape", type=str, default="pl", help="filter portrait or landscape. p = portrait, l = landscape, pl (default) = both")
+	parser.add_argument("-l", "--loop", type=int, default="1", help="nr. of loops, -1 = loop forever, default=1")
+	parser.add_argument("--limit", type=int, default="-1", help="limit length of show to minutes (approx.) by randomly skipping images and maintaining the order ")
+	parser.add_argument("-a", "--age",  type=float, default="-1.0", help="maximal age of file in days. -1.0 (default): all files")
+	parser.add_argument("-g", "--gray", type=int, default="0", help="0 (default): color, all else: convert to grayscale")
+	parser.add_argument("-r", "--random", type=int, default="-1", help="random shuffle. -1 (default): leave as is = depth-first-search, 0: sorted, 0..100: shuffle")
+	parser.add_argument("-i", "--input", type=str, default="", help="input file, containing filenames and parameters (script)")
+	parser.add_argument("-v", "--verbose", type=int, default="1", help="verbose ... 0=only errors, 1(Default)=print filenames, higher numbers = more information")
+	parser.add_argument("-o", "--output", type=str, default="", help="output video file (very experimental)")
+	parser.add_argument("-w", "--width", type=int, default="-1", help="width. -1 (default): automatic")
+	parser.add_argument("-hh", "--height", type=int, default="-1", help="height. -1 (default): automatic")
+	parser.add_argument("--fps", type=float, default=30.0, help="fps of output video (very experimental)")
+	parser.add_argument("-bg", "--background", type=str, default="#000000", help="background color in hex values (rgb) like #0fcc80")
+	parser.add_argument("-b", "--blackout", type=str, default="yes", help="yes/no. At the end of the show, keep the window dark until a key is pressed. Default = yes")
+	parser.add_argument("-ss", "--screensaver", type=str, default="yes", help="yes/no. Disable screensaver. Default = yes")
+	parser.add_argument("--scr", type=str, default="no", help="blendPics acts a screensaver (quit when a key is pressed), Default=no")
+
+	args = parser.parse_args()
+
+
+
+
+	doIt (args)
 
