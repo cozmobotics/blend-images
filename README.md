@@ -1,6 +1,6 @@
-# blend-images
+# blendPics
 
-Create a slide show of images with smooth transition between images
+Create a slide show of images with smooth and/or interesting transition between images
 
 Available as screensaver (NEW!) and standalone application
 
@@ -47,7 +47,7 @@ A detailed explanation of transitions is [here](transitions.md)
                  [-N NOTMATCH] [-pl PORTRAIT_LANDSCAPE] [-l LOOP]
                  [--limit LIMIT] [-a AGE] [-g GRAY] [-r RANDOM] [-i INPUT]
                  [-v VERBOSE] [-o OUTPUT] [-w WIDTH] [-hh HEIGHT] [--fps FPS]
-                 [-bg BACKGROUND] [-b BLACKOUT] [-ss SCREENSAVER]
+                 [-bg BACKGROUND] [-b BLACKOUT] [-ss SCREENSAVER] [-scr SCR]
 
 * display all images in folder with nice transitions
 
@@ -105,6 +105,8 @@ A detailed explanation of transitions is [here](transitions.md)
                         until a key is pressed. Default = yes
 *  -ss SCREENSAVER, --screensaver SCREENSAVER
                         yes/no. Disable screensaver. Default = yes
+*   --scr SCR,          blendPics acts as screensaver (quit when a key is
+                        pressed), Default=no
 
 Esc/q=quit, p=pause on/off, f=freeze on/off, s(while blending)=save picture,
 c=copy filename to clipboard, b/o/n/d/l=change transition, left arrow or
