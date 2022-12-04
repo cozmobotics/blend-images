@@ -4,7 +4,6 @@
 # todo:
 # "image stabilisation" = zoom/pan/rotate similar images so they fit together 
 # slowly pan panoramic images across screen 
-# do not enlarge small pictures 
 # display information (height/width, date, filename,...) --> not so easy 
 # graphical menu 
 # play videos 
@@ -76,6 +75,10 @@
 # 2022-10-30 Screensaver-mode --scr (immediately stop with any key pressed (mouse not yet implemented))
 # 2022-11-02 key "?" writes filename and -path on screen (redundant, Alt-Tab does the same)
 # 2022-11-03 Screensaver-mode: quit on mouse activity
+# 2022-11-08 bugfix: enable help in compiled version (see https://stackoverflow.com/questions/69007351/pyinstaller-is-not-compatible-with-python-argparse-h )
+# 2022-12-04 do not enlarge small pictures (parameter -e), skip too small images
+# 2022-12-04 Screensaver-mode: allow left and right arrow keys to change images 
+
 
 import numpy as np
 import cv2 as cv
@@ -88,7 +91,7 @@ import random
 import clipboard
 import pyautogui # for hiding cursor
 import math # for sinus in light curve
-import sys  # for printing arguments
+import sys  # for printing arguments and enabling help in compiled version
 
 import ctypes					# to disable/enable screensaver (Windows)
 SPI_SETSCREENSAVEACTIVE = 17
@@ -119,21 +122,13 @@ def imread_funny (filename):
 	return (image, success)
 
 #----------------------------------------------------------------
-def writeFileInfo (image, filename):
-	'''not yet used'''
-	text = "filename: " + filename + '\n'
-	text = text + "date: " + '\n'
-	
-	cv.putText (image, text, (20,20))
-
-#----------------------------------------------------------------
 # https://thispointer.com/python-how-to-get-list-of-files-in-directory-and-sub-directories/
 
 '''
 	For the given path, get the List of all files in the directory tree 
 '''
 def getListOfFiles(dirName, depth):
-	# create a list of file and sub directories 
+	# create a list of files and sub directories 
 	# names in the given directory 
 	try:
 		listOfFile = os.listdir(dirName)
@@ -163,7 +158,7 @@ def scaleImage (tempImg, screenWidth, screenHeight, padColor, convertToGray):
 	try:
 		(h,w,c) = tempImg.shape
 	except Exception as e:
-		print (">>>> ERROR : ", e)
+		print (">>>> ERROR : ", str(e))
 		success = False
 	
 	if (success):
@@ -173,27 +168,38 @@ def scaleImage (tempImg, screenWidth, screenHeight, padColor, convertToGray):
 			pl = "p"
 		if (not pl in args.portrait_landscape):
 			success = False
-			
+		
+		if (w < screenWidth / 2) and (h < screenHeight / 2):
+			success = False
+
+
 	if (success):
 		aspectRatioImage = (w+1) / (h+1) 
 		aspectRatioScreen = screenWidth / screenHeight
 		
-		if (aspectRatioImage > aspectRatioScreen):
-			newHeight = int(w / aspectRatioScreen)
-			newWidth = w
+		if (w > screenWidth) or  (h > screenHeight) or (args.enlarge == "yes"):
+		# if (w > screenWidth) or  (h > screenHeight) or (args.enlarge > 0):
+			if (aspectRatioImage > aspectRatioScreen):
+				newHeight = int(screenWidth / aspectRatioImage)
+				newWidth = screenWidth
+			else:
+				newWidth = int(w * screenHeight / h)
+				newHeight = screenHeight
+			tempImg = cv.resize(tempImg, (newWidth, newHeight), cv.INTER_AREA)
 		else:
-			newWidth = int(h * aspectRatioScreen)
+			newWidth = w
 			newHeight = h
 			
 		# print ("newWidth: ", newWidth, " newHeight:", newHeight)
 		
-		topBottom = int((newHeight - h) / 2)
-		leftRight = int((newWidth  - w)  / 2)
+		topBottom = int((screenHeight - newHeight) / 2)
+		leftRight = int((screenWidth - newWidth)  / 2)
 		color = [0, 0, 0]
 
-		tempImg = cv.copyMakeBorder(tempImg, topBottom, topBottom, leftRight, leftRight, cv.BORDER_CONSTANT, value=padColor)
-		
-		tempImg = cv.resize(tempImg, (screenWidth, screenHeight), cv.INTER_AREA)
+		blackImg = np.zeros((screenHeight, screenWidth, 3), np.uint8)
+		blackImg[:] = padColor
+		blackImg[topBottom:topBottom + newHeight, leftRight:leftRight + newWidth] = tempImg
+		tempImg = blackImg
 	
 	if (c != 3):
 		success = False
@@ -531,7 +537,7 @@ def blend (img1, img2, fadeTime, duration, transition, description):
 			if (tempKey != -1):
 				key = tempKey
 				
-				if (args.scr == "yes"):	# when blendPics acts as screensaver, quit immediately
+				if (args.scr == "yes") and not (tempKey in [KEY_LEFT, KEY_RIGHT]):	# when blendPics acts as screensaver, quit immediately
 					if (args.verbose > 1):
 						print ("screensaver mode, stopping immediately")
 					sys.exit()	
@@ -587,7 +593,7 @@ def blend (img1, img2, fadeTime, duration, transition, description):
 			
 			tempKey = cv.waitKeyEx(1)
 			
-			if ((tempKey != -1) and(args.scr == "yes")):	# when blendPics acts as screensaver, quit immediately
+			if ((tempKey != -1) and(args.scr == "yes") and not (tempKey in [KEY_LEFT, KEY_RIGHT])):	# when blendPics acts as screensaver, quit immediately
 				if (args.verbose > 1):
 					print ("screensaver mode, stopping immediately")
 				sys.exit()	
@@ -812,7 +818,7 @@ def doIt (argumentsDoIt):
 		print ("blendPics by Martin Piehslinger")
 		print ("*******************************")
 		print ("")
-		print ('current working directory: ', os.getcwd(), ', command line parameters:', sys.argv)
+		print ('current working directory: ', os.getcwd(), ', command line parameters:', args)
 
 		try:
 			from builddate import builddateString
@@ -851,7 +857,7 @@ def doIt (argumentsDoIt):
 
 	if (args.input == ''):
 		if (args.verbose >= 1):
-			print ("searching images on " + args.path + "...")
+			print ("searching images on " + args.path)
 		fileList = getListOfFiles(args.path, args.subdirs)
 
 		filenamesAll = []
@@ -1103,8 +1109,9 @@ if __name__ == "__main__":
 	parser.add_argument("-n", "--notmatch", type=str, default="", help="negative mask filename (regex syntax, case insensitive)")
 	parser.add_argument("-N", "--NotMatch", type=str, default="", help="negative mask filename (regex syntax, case sensitive)")
 	parser.add_argument("-pl", "--portrait_landscape", type=str, default="pl", help="filter portrait or landscape. p = portrait, l = landscape, pl (default) = both")
+	parser.add_argument("-e", "--enlarge", type=str, default="no", help="enlarge small images, default = no ")
 	parser.add_argument("-l", "--loop", type=int, default="1", help="nr. of loops, -1 = loop forever, default=1")
-	parser.add_argument("--limit", type=int, default="-1", help="limit length of show to minutes (approx.) by randomly skipping images and maintaining the order ")
+	parser.add_argument("-L", "--limit", type=int, default="-1", help="limit length of show to minutes (approx.) by randomly skipping images and maintaining the order ")
 	parser.add_argument("-a", "--age",  type=float, default="-1.0", help="maximal age of file in days. -1.0 (default): all files")
 	parser.add_argument("-g", "--gray", type=int, default="0", help="0 (default): color, all else: convert to grayscale")
 	parser.add_argument("-r", "--random", type=int, default="-1", help="random shuffle. -1 (default): leave as is = depth-first-search, 0: sorted, 0..100: shuffle")
@@ -1117,9 +1124,9 @@ if __name__ == "__main__":
 	parser.add_argument("-bg", "--background", type=str, default="#000000", help="background color in hex values (rgb) like #0fcc80")
 	parser.add_argument("-b", "--blackout", type=str, default="yes", help="yes/no. At the end of the show, keep the window dark until a key is pressed. Default = yes")
 	parser.add_argument("-ss", "--screensaver", type=str, default="yes", help="yes/no. Disable screensaver. Default = yes")
-	parser.add_argument("--scr", type=str, default="no", help="blendPics acts a screensaver (quit when a key is pressed), Default=no")
+	parser.add_argument("--scr", type=str, default="no", help="blendPics acts as screensaver (quit when a key is pressed), Default=no")
 
-	args = parser.parse_args()
+	args = parser.parse_args(sys.argv[1:]) # sys.argv[1:] for enabling help in compiled version
 
 
 
