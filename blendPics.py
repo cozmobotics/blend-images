@@ -6,7 +6,7 @@
 # slowly pan panoramic images across screen 
 # display information (height/width, date, filename,...) --> not so easy 
 # graphical menu 
-# play videos 
+# play videos .... using os.system (mplayer filename)  
 # react to mouse interaction
 # invent some more fancy transitions
 # change fade and duration at runtime
@@ -25,6 +25,10 @@
 # when playing from a list of pictures, the first picture is not blended in but starts immediately
 # use mouse to switch to next picture 
 # when scanning for files, write file list to disk. Write date of each subdir. On startup, compare subdir dates and re-scan newer subdirs
+# in writeToPic, write the comment (if any)
+# find startimage: make it faster (search for startimage when adding files to array, not when playing the show) 
+# keep comments and display them 
+# bug: after playing video with duration != -1, "missed" transitions are carried out --> bugfix: restart time  
 
 # done: 
 # subdirectries
@@ -78,11 +82,24 @@
 # 2022-11-08 bugfix: enable help in compiled version (see https://stackoverflow.com/questions/69007351/pyinstaller-is-not-compatible-with-python-argparse-h )
 # 2022-12-04 do not enlarge small pictures (parameter -e), skip too small images
 # 2022-12-04 Screensaver-mode: allow left and right arrow keys to change images 
-
+# 2023-02-03 parameter --log, function logMessage() todo: replace all print commands with logMessage()
+# 2023-02-13 when parameter -i is given: ignore comments, i.e. ignore all after a # sign (will cut a filename, if it contains a # sign)
+# 2023-02-13 more significant error messages
+# 2023-02-13 bugfix: enable mouse AFTER moving mouse pointer to 0,0 --> screensaver reacts to mouse 
+# 2023-04-13 added complex sort options, added module exifRoutines
+# 2023-04-15 added video playback (withe external player, default = mplayer)  
+# 2023-04-19 added argument "startimage" 
+# 2023-04-20 added ".mts" to list of extensionsVideo 
+# 2023-04-26 bugfix when an input line contains more than one #'es 
+# 2023-04-29 bugfix: F2, F3, F4,...  program crashes. NameError: name 'durationTime' is not defined
+# 2023-05-02 load filenames from spreadsheet 
+# 2023-05-03 only one command line parameter: interprete this parameter as path 
+# 2023-05-05 bugfix: crash when filename in spreadscheet is empty (commented out)
+# 2023-06-xx moved some functions to getPics.py
+# 2023-07-09 more sorting options
 
 import numpy as np
 import cv2 as cv
-from PIL import ImageGrab
 import time
 import os
 import argparse
@@ -92,9 +109,29 @@ import clipboard
 import pyautogui # for hiding cursor
 import math # for sinus in light curve
 import sys  # for printing arguments and enabling help in compiled version
+from datetime import datetime # for logfile
+import exifRoutines
+import ctypes # to disable/enable screensaver (Windows)
+import openpyxl # for spreadsheet 
+from collections import namedtuple
+import getPics
 
-import ctypes					# to disable/enable screensaver (Windows)
 SPI_SETSCREENSAVEACTIVE = 17
+
+#----------------------------------------------------------------
+def logMessage (level, text):
+	# text = '#' + text
+	if level <= args.verbose:
+		print (text)
+	
+	if (args.log !=  ""):
+		try:
+			logFile = open (args.log, 'a')
+		except Exception:
+			print ("--- unable to write to logfile " + args.log)
+		else:
+			logFile.write (text + '\n')
+			logFile.close ()
 
 #----------------------------------------------------------------
 # https://bytes.com/topic/python/answers/24703-screensaver
@@ -113,40 +150,28 @@ def imread_funny (filename):
 		f = open(filename, "rb")
 		b = f.read()
 		f.close()
+	except Exception as e:
+		# print ('>>>', e)
+		success = False
+		logMessage (0, '#>>>' + str(e))
+	
+	# 2023-02-13 more significant error messages
+	
+	try:
 		b = np.frombuffer(b, dtype=np.int8)
+	except Exception as e:
+		# print ('>>>', e)
+		success = False
+		logMessage (0, '#>>>' + str(e))
+
+	try:
 		image = cv.imdecode(b, cv.IMREAD_COLOR);
 	except Exception as e:
-		print ('>>>', e)
+		# print ('>>>', e)
 		success = False
+		logMessage (0, '#>>>' + str(e))
 	
 	return (image, success)
-
-#----------------------------------------------------------------
-# https://thispointer.com/python-how-to-get-list-of-files-in-directory-and-sub-directories/
-
-'''
-	For the given path, get the List of all files in the directory tree 
-'''
-def getListOfFiles(dirName, depth):
-	# create a list of files and sub directories 
-	# names in the given directory 
-	try:
-		listOfFile = os.listdir(dirName)
-	except Exception as e:
-		return list()
-	allFiles = list()
-	# Iterate over all the entries
-	for entry in listOfFile:
-		# Create full path
-		fullPath = os.path.join(dirName, entry)
-		# If entry is a directory then get the list of files in this directory 
-		if (os.path.isdir(fullPath)):
-			if (depth != 0):
-				allFiles = allFiles + getListOfFiles(fullPath, depth-1)
-		else:
-			allFiles.append(fullPath)
-				
-	return allFiles
 
 #----------------------------------------------------------------
 def scaleImage (tempImg, screenWidth, screenHeight, padColor, convertToGray):
@@ -158,7 +183,8 @@ def scaleImage (tempImg, screenWidth, screenHeight, padColor, convertToGray):
 	try:
 		(h,w,c) = tempImg.shape
 	except Exception as e:
-		print (">>>> ERROR : ", str(e))
+		# print (">>>> ERROR : ", str(e))
+		logMessage (0, "#>>>> ERROR : " + str(e))
 		success = False
 	
 	if (success):
@@ -168,9 +194,11 @@ def scaleImage (tempImg, screenWidth, screenHeight, padColor, convertToGray):
 			pl = "p"
 		if (not pl in args.portrait_landscape):
 			success = False
+			logMessage (2, "# portrait/landscape filter")
 		
 		if (w < screenWidth / 2) and (h < screenHeight / 2):
 			success = False
+			logMessage (2, "# image too small")
 
 
 	if (success):
@@ -185,7 +213,11 @@ def scaleImage (tempImg, screenWidth, screenHeight, padColor, convertToGray):
 			else:
 				newWidth = int(w * screenHeight / h)
 				newHeight = screenHeight
-			tempImg = cv.resize(tempImg, (newWidth, newHeight), cv.INTER_AREA)
+			try:
+				tempImg = cv.resize(tempImg, (newWidth, newHeight), cv.INTER_AREA)
+			except Exception as e:
+				logMessage (0, "#>>>" + str(e))
+				success = False
 		else:
 			newWidth = w
 			newHeight = h
@@ -202,23 +234,18 @@ def scaleImage (tempImg, screenWidth, screenHeight, padColor, convertToGray):
 		tempImg = blackImg
 	
 	if (c != 3):
-		success = False
-		print (">>>> ERROR: image has color depth of ", c)
+		if c == 1:
+			tempImg = cv.cvtColor(tempImg, cv.COLOR_GRAY2BGR) # convert because we need a color depth of 3
+		else:
+			success = False
+			logMessage (0, "#>>>> ERROR: image has color depth of " + str(c))
 	
 	if (convertToGray != 0):
 		tempImg = cv.cvtColor(tempImg, cv.COLOR_BGR2GRAY)
 		tempImg = cv.cvtColor(tempImg, cv.COLOR_GRAY2BGR) # convert back because we still need a color depth of 3 
 	
 	return (tempImg, success)
-#----------------------------------------------------------------
-def swapColors (inImage, steps):
-	a,b,c = cv.split(inImage)
-	if (steps == 1):
-		swapped = cv.merge ((b,c,a))
-	else:
-		swapped = cv.merge ((c,a,b))
-	return swapped
-
+	
 #----------------------------------------------------------------
 def addInverted(img1,bright1,img2,bright2):
 	
@@ -231,7 +258,6 @@ def addInverted(img1,bright1,img2,bright2):
 		# print (int(100 * brightB), end = '\r')
 
 	Negative = cv.bitwise_not(imgA) 
-	# Negative = swapColors(imgA,1) 
 	gray = cv.cvtColor(imgB, cv.COLOR_BGR2GRAY)
 	ret,mask = cv.threshold(gray,255 - int(255 * brightA) + 1,255,cv.THRESH_BINARY)
 
@@ -354,8 +380,9 @@ def savePic (imgToWrite):
 		else:
 			found = True
 	
-	if (args.verbose >= 1):
-		print ("writing image to ", filenameToWrite)
+	# if (args.verbose >= 1):
+		# print ("writing image to ", filenameToWrite)
+	logMessage (1, "# writing image to " + filenameToWrite)
 	cv.imwrite (filenameToWrite, imgToWrite)
 		
 #----------------------------------------------------------------
@@ -375,14 +402,14 @@ def evalKey (key):
 		elif (key == KEY_F2):
 			durationTime = durationTime / 1.5
 			if (args.verbose >= 1):
-				print ("duration: ", "%.2f" % durationTime, end='\r')
+				print ("#duration: ", "%.2f" % durationTime)
 		elif (key == KEY_F3):
 			if (durationTime < 0.1):
 				durationTime = 0.5
 			else:
 				durationTime = durationTime * 1.5
 			if (args.verbose >= 1):
-				print ("duration: ", "%.2f" % durationTime, end='\r')
+				print ("#duration: ", "%.2f" % durationTime)
 		elif (key == KEY_F4):
 			fadeTime = fadeTime / 1.5
 			if (args.verbose >= 1):
@@ -393,12 +420,12 @@ def evalKey (key):
 			else:
 				fadeTime = fadeTime * 1.5
 			if (args.verbose >= 1):
-				print ("fade: ", "%.2f" % fadeTime, end='\r' )
+				print ("#fade: ", "%.2f" % fadeTime)
 		# elif (key < 128 and chr(key) in 'bondlix'):           # < 128 : avoid error when pressing function/cursor keys
 		elif (key < 128 and chr(key) in all):           # < 128 : avoid error when pressing function/cursor keys
 			transDict = setTransitions (chr(key), transDict)
 			if (args.verbose >= 1):
-				print ("Transitions: ", listTransitions(transDict), end='\r')
+				print ("#Transitions: ", listTransitions(transDict))
 			# print (chr(key), transDict) # debug
 		else:
 			return key
@@ -406,11 +433,20 @@ def evalKey (key):
 	return -1
 
 #----------------------------------------------------------------
-def writeToPic(imageToWtriteTo, textToWrite):
+def writeToPic(imageToWriteTo, textToWrite, lineNr = 0 ):
+	global writeToPicLineNr
+	
+	if lineNr == -1:
+		lineNr = writeToPicLineNr
+		writeToPicLineNr = writeToPicLineNr + 1
+	else:
+		writeToPicLineNr = lineNr + 1
+		
+	lineHeight = 50
 	new_image = cv.putText(
-	img = imageToWtriteTo,
+	img = imageToWriteTo,
 	text = textToWrite,
-	org = (200, 200),
+	org = (200, 200 + lineNr * lineHeight),
 	fontFace = cv.FONT_HERSHEY_DUPLEX,
 	fontScale = 1.0,
 	color = (125, 246, 55),
@@ -418,7 +454,29 @@ def writeToPic(imageToWtriteTo, textToWrite):
 	)
 	
 	cv.imshow ('blendPics', new_image)
+	cv.waitKey (1)
 
+
+#----------------------------------------------------------------
+
+def blendWrapper (img1, img2, fadeTime, duration, transition, description, isVideo1, isVideo2, filename1, filename2):
+	global black
+	global args
+	if not isVideo1 and not isVideo2:
+		return blend (img1, img2, fadeTime, duration, transition, description)
+	
+	elif isVideo2:
+		if args.videoplayer != "none":
+			img2 = black
+			cv.imshow ("blendPics", img2) 
+			cv.waitKey (1)
+			# os.system ("mplayer " + filename2)
+			os.system (args.videoplayer + " " + filename2)
+		return 0
+
+	elif isVideo1:
+		img1 = black
+		return blend (img1, img2, fadeTime, duration, 'b', description)
 
 #----------------------------------------------------------------
 
@@ -538,8 +596,9 @@ def blend (img1, img2, fadeTime, duration, transition, description):
 				key = tempKey
 				
 				if (args.scr == "yes") and not (tempKey in [KEY_LEFT, KEY_RIGHT]):	# when blendPics acts as screensaver, quit immediately
-					if (args.verbose > 1):
-						print ("screensaver mode, stopping immediately")
+					# if (args.verbose > 1):
+						# print ("screensaver mode, stopping immediately")
+					logMessage (1, "# screensaver mode, stopping immediately")
 					sys.exit()	
 				
 				if (tempKey == ord ('f')):
@@ -578,6 +637,7 @@ def blend (img1, img2, fadeTime, duration, transition, description):
 		#workaround for some pictures/transitions when parts of the old image remain
 		dst = img2
 		cv.imshow ('blendPics',dst)
+		cv.waitKey (1)
 		
 		# if ((key == 27) or (key == ord('q')) or (key == ord(' ')) or (key == 8)):
 		if (key in (27,ord('q'),32,8,KEY_LEFT,KEY_RIGHT)):
@@ -594,8 +654,9 @@ def blend (img1, img2, fadeTime, duration, transition, description):
 			tempKey = cv.waitKeyEx(1)
 			
 			if ((tempKey != -1) and(args.scr == "yes") and not (tempKey in [KEY_LEFT, KEY_RIGHT])):	# when blendPics acts as screensaver, quit immediately
-				if (args.verbose > 1):
-					print ("screensaver mode, stopping immediately")
+				# if (args.verbose > 1):
+					# print ("screensaver mode, stopping immediately")
+				logMessage (1, "# screensaver mode, stopping immediately")
 				sys.exit()	
 
 			
@@ -604,7 +665,7 @@ def blend (img1, img2, fadeTime, duration, transition, description):
 			if (tempKey == ord('p')):
 				pause = not pause
 				if (args.verbose >= 1):
-					print ('pause ',pause, '   ', end = '\r') # +++ python3 only 
+					print ('#pause ',pause, '   ') 
 			elif (tempKey != -1):
 				key = tempKey
 				if ((key == ord(' ')) or (key == 8) or (key == KEY_LEFT) or (key == KEY_RIGHT)):
@@ -615,6 +676,8 @@ def blend (img1, img2, fadeTime, duration, transition, description):
 					writeToPic (img2, description)
 		# print ("key:", key)
 		return (key)
+		
+		# --- blend ---
 
 #----------------------------------------------------------------
 def setTransitions (transitionsDef, oldDict):
@@ -665,45 +728,31 @@ def readBgColor (inString):
 		res.append (hex)
 		
 	return res
-#----------------------------------------------------------------
-def bubbleShuffle (arrayAll, randomPercent, probability):
-	array = []
-	for file in arrayAll:
-		if (random.randrange(0, 100) < probability):
-			array.append(file)
+#---------------------------------------------------------------------------
+def fromSpreadsheet (spreadSheeetName):
 	
-	# randomPercent < 0 ... do nothing
-	if (randomPercent < 0):
-		return array
+	files = []
 	
-	# randomPercent 100% ... normal shuffle
-	if (randomPercent >= 100):
-		random.shuffle(array)
-		return array
+	try:
+		wb = openpyxl.load_workbook(filename=spreadSheeetName)
+		ws = wb.worksheets[0]
+	except Error as e:
+		print (str(e))
+		return ([])
 	
-	array.sort()
-	
-	Len = len(array)
-	window = int (Len * randomPercent / 100)
-	if (window < 2):
-		window = 2
-	# print ("window", window)
-	
-	winStep =  int(window / 2) 
-	if (winStep == 0):
-		winStep = 1
-	
-	# for winStart in range (0, Len - window, winStep):
-	for winStart in range (0, Len, winStep):		# one too many, but so we are sure to shuffle up to the end
-		winEnd = winStart+window
-		if (winEnd > Len):
-			winEnd = Len
-		# print ("sorting from ", winStart, " to ", winEnd)
-		subset = array[winStart:winEnd]
-		random.shuffle  (subset)
-		array[winStart:winEnd] = subset
-	
-	return array
+	for lineCount in range (1, ws.max_row + 1):
+		line = ""
+		filename = ws["B" + str(lineCount)].value 
+		try:
+			filename = filename.strip()
+		except Exception:
+			filename = ""
+		comment = ws["C" + str(lineCount)].value
+		
+		if (filename != None): 
+			files.append(filename)
+
+	return files
 
 #----------------------------------------------------------------
 def mouseEvent (event,x,y,flags,param):
@@ -716,10 +765,12 @@ def mouseEvent (event,x,y,flags,param):
 		mouseOldX = x
 		mouseOldY = y
 	else:
-		if (abs (mouseOldX - x) > 10) or (abs (mouseOldY - y) > 10):
-			if (args.verbose > 1):
-				print ("screensaver mode, mouse moved, stopping immediately")
-			sys.exit()	
+		if (args.scr == "yes"): 
+			if (abs (mouseOldX - x) > 10) or (abs (mouseOldY - y) > 10):
+				# if (args.verbose > 1):
+					# print ("screensaver mode, mouse moved, stopping immediately")
+				logMessage (0, "# screensaver mode, mouse moved, stopping immediately")
+				sys.exit()	
 		
 	mouseCount = mouseCount + 1
 	
@@ -727,9 +778,11 @@ def mouseEvent (event,x,y,flags,param):
 		print (event,x,y,flags,param)
 	
 	if (args.scr == "yes") and (event != 0):	# when blendPics acts as screensaver, quit immediately
-		if (args.verbose > 1):
-			print ("screensaver mode, mouse clicked, stopping immediately")
+		# if (args.verbose > 1):
+			# print ("screensaver mode, mouse clicked, stopping immediately")
+		logMessage (0, "# screensaver mode, mouse clicked, stopping immediately")
 		sys.exit()	
+
 #----------------------------------------------------------------
 def doIt (argumentsDoIt):
 	global videoInterval
@@ -740,9 +793,16 @@ def doIt (argumentsDoIt):
 	global args
 	global convertToGray
 	
+	global durationTime
+	global fadeTime
+	
 	global mouseCount
 	global mouseOldX
 	global mouseOldY
+	global writeToPicLineNr
+	global welcome
+	
+	writeToPicLineNr = 0
 
 	
 	args = argumentsDoIt
@@ -777,6 +837,8 @@ def doIt (argumentsDoIt):
 	global KEY_PGDN 
 	global KEY_HOME 
 	global KEY_END  
+	global black
+	global startImageFound
 
 	KEY_UP   = 0x260000
 	KEY_DOWN = 0x280000
@@ -808,23 +870,28 @@ def doIt (argumentsDoIt):
 	
 
 	extensionsPhoto = ('.png', '.jpg', '.jpeg', '.jfif', '.tiff', '.bmp' , '.webp', '.gif') 
-	extensionsVideo = ('.mp4', '.mpeg', '.avi', '.mov') 
+	extensionsVideo = ('.mp4', '.mpeg', '.avi', '.mov','.mts') 
 
 
 	key = 0
 	pause = False
 
+	logMessage (100, "# ---------------------------------------------------")
+	now = datetime.now()
+	logMessage (100, "# " + now.strftime("%Y-%m-%d, %H:%M:%S"))
+	
 	if (args.verbose >= 1):
-		print ("blendPics by Martin Piehslinger")
-		print ("*******************************")
+		print ("# blendPics by Martin Piehslinger")
+		print ("# *******************************")
 		print ("")
-		print ('current working directory: ', os.getcwd(), ', command line parameters:', args)
 
 		try:
 			from builddate import builddateString
 			print ("Version from ", builddateString)
 		except ImportError:
 			pass
+
+		print ('# current working directory: ', os.getcwd(), ', command line parameters:', args)
 
 	if ("Y" in args.screensaver.upper()):
 		EnableScreenSaver(0)
@@ -854,16 +921,17 @@ def doIt (argumentsDoIt):
 	durationTime = args.duration
 	convertToGray = args.gray
 
+	filenamesAll = []
 
 	if (args.input == ''):
-		if (args.verbose >= 1):
-			print ("searching images on " + args.path)
-		fileList = getListOfFiles(args.path, args.subdirs)
+		# if (args.verbose >= 1):
+			# print ("searching images on " + args.path)
+		logMessage (1, "# searching images on " + args.path)
+		fileList = getPics.getListOfFiles(args.path, args.subdirs)
 
-		filenamesAll = []
 		for filename in fileList:
 			addFile = True
-			if (filename.lower().endswith(extensionsPhoto)):
+			if ((filename.lower().endswith(extensionsPhoto)) or (filename.lower().endswith(extensionsVideo))):
 				if (not re.search(args.match,filename,flags=re.IGNORECASE)):
 					addFile = False
 				if (not re.search(args.Match,filename)):
@@ -873,7 +941,7 @@ def doIt (argumentsDoIt):
 				if (args.NotMatch != '' and re.search(args.NotMatch,filename)):
 					addFile = False
 				if (args.age > 0):
-					age = time.time() - os.path.getmtime(filename) 
+					age = time.time() - os.path.getmtime(filename) ### +++ aus exif nehmen
 					age = age / 3600 / 24 # age in days
 					# print ("age: ",age," max age:" , args.age, addFile, age > args.age)
 					if (age > args.age):
@@ -898,14 +966,25 @@ def doIt (argumentsDoIt):
 			
 		# print (filenames)
 	else:
-		try:
-			inputList = open (args.input,'r')
-		except Exception as e:
-			print (e)
-			sys.exit() 
-		filenames = inputList.readlines()
-		filenamesAll = filenames
-		inputList.close()
+		if args.input.lower().endswith('.xlsx'):
+			filenamesAll = fromSpreadsheet (args.input)
+		else: 
+			try:
+				inputList = open (args.input,'r')
+			except Exception as e:
+				print (e)
+				sys.exit() 
+			filenames = inputList.readlines()
+			
+			for filename in filenames:
+				# 2023-02-13
+				if '#' in filename:
+					(a,b) = filename.split('#', 1)
+					filename = a
+				filename = filename.strip()  # to avoid blank lines on the screen 
+				filenamesAll.append (filename)
+			# filenamesAll = filenames
+			inputList.close()
 
 	NumFiles = len(filenamesAll)
 	LenShow = int (NumFiles * (fadeTime + durationTime) / 60)
@@ -916,8 +995,9 @@ def doIt (argumentsDoIt):
 		probability = 100
 	# print ("probability ", probability)
 
-	if (args.verbose >= 1):
-		print (NumFiles, "files found", " total duration approx", LenShow, " minutes,  limiting to ", args.limit, " minutes. Probability=", int(probability), "%")
+	# if (args.verbose >= 1):
+		# print (NumFiles, "files found", " total duration approx", LenShow, " minutes,  limiting to ", args.limit, " minutes. Probability=", int(probability), "%")
+	logMessage (1, "# " + str(NumFiles) + " files found," + " total duration approx " + str(LenShow) + " minutes, limiting to " + str(args.limit) + " minutes, Probability=" + str(int(probability)) + "%")
 	if (NumFiles == 0):
 		sys.exit()
 
@@ -940,10 +1020,10 @@ def doIt (argumentsDoIt):
 	if ((w < 0) or (h < 0)):
 		(a,b,w,h) = cv.getWindowImageRect('blendPics')
 	aspectRatioScreen =  (w+1) / (h+1)
-	if (args.verbose >= 1):
-		print ('Screen: ', w+1, h+1, "%.2f" % aspectRatioScreen)
+	# if (args.verbose >= 1):
+		# print ('Screen: ', w+1, h+1, "%.2f" % aspectRatioScreen)
+	logMessage (1, '# Screen: ' +  str(w+1) + "x" + str(h+1) + ", " + str(aspectRatioScreen))
 
-	# cv.setMouseCallback('blendPics',mouseEvent) # +++ doesn' work 
 
 	if (args.output != ''):
 		fourcc = cv.VideoWriter_fourcc(*'XVID')
@@ -957,26 +1037,33 @@ def doIt (argumentsDoIt):
 	black = np.zeros((h+1, w+1, 3), np.uint8)
 	black[:] = bgColor
 	
-	# grab screen ++++ does not yet work 
-	# screen = np.array(ImageGrab.grab(bbox=(0,0,w,h)))
-	# img1 = screen
-	# img2 = screen
-	
 	img1 = black
 	img2 = black
 	cv.imshow('blendPics',black)
-	cv.waitKey(1000)
+	# cv.waitKey(1000)
+	
+	
+	welcome = np.zeros((h+1, w+1, 3), np.uint8)
+	welcome[:] = bgColor
+	writeToPic (welcome, 'Welcome to blendPics')
+	
 
 	FirstTime = True
 
 	pyautogui.FAILSAFE = False
 	pyautogui.moveTo(0,0) # to hide the mouse cursor
+	cv.setMouseCallback('blendPics',mouseEvent) # 2023-02-13 enable mouse AFTER moving mouse pointer to 0,0
 
 	loopCount = 0
+	
+	if (args.startimage != ""):
+		writeToPic (welcome, "searching for " + args.startimage, lineNr = -1)
 
 	while ((loopCount < args.loop) or (args.loop == -1)):
 
-		filenames = bubbleShuffle (filenamesAll, args.random, probability)
+		writeToPic (welcome, "sorting...", -1)
+		logMessage (1, "# sorting....")
+		filenames = getPics.bubbleShuffle (filenamesAll, args.random, probability, args.sort)
 		
 		# if (args.random != 0):
 			# print ("shuffle....")
@@ -986,9 +1073,12 @@ def doIt (argumentsDoIt):
 		IndexFiles = 0
 		running = True
 		Back = False
+		isVideo1 = False
+		isVideo2 = False
 
 		while ((IndexFiles >= 0) and (IndexFiles < len(filenames)) and running):
 			
+			# script gives detailed specifications for the image (syntax: imgName|fadeTime|durationTime|transitionString) 
 			if (filenames[IndexFiles].startswith('*')):
 				commands = filenames[IndexFiles].split ('*')
 				for command in commands:
@@ -1008,26 +1098,62 @@ def doIt (argumentsDoIt):
 				imgName = filenames[IndexFiles]
 			
 			if (args.verbose >= 2):
-				print ('*n|' + imgName + '*d|' + "%.2f" % durationTime + '*f|' + "%.2f" % fadeTime,end = '')
-			elif (args.verbose >= 1):
-				print (imgName)
+				# print ('*n|' + imgName + '*d|' + "%.2f" % durationTime + '*f|' + "%.2f" % fadeTime,end = '')
+				logMessage (0, '*n|' + imgName + '*d|' + "%.2f" % durationTime + '*f|' + "%.2f" % fadeTime + " " + imgName)
+			elif (args.verbose == 1):
+				# print (imgName)
+				logMessage (0, imgName)
+				# logMessage (0, imgName + " # >" + exifRoutines.getImageTime(imgName) + "<") ###+++ debug
 			
-			(img2, success) = imread_funny(imgName)
-			if (success):
-				(img2, success) = scaleImage(img2, w+1, h+1, bgColor, convertToGray)
+			if (imgName.lower().endswith(extensionsPhoto)):
+				isVideo2 = False
+				(img2, success) = imread_funny(imgName)
+				if (success):
+					(img2, success) = scaleImage(img2, w+1, h+1, bgColor, convertToGray)
+			elif (imgName.lower().endswith(extensionsVideo)):
+				isVideo2 = True
+				success = True
 			
+			if (args.startimage != ""):
+				# if imgName.endswith (args.startimage):
+				if args.startimage in imgName:
+					startImageFound = True
+				success = startImageFound
+
+			# this is redundant, but I want it to work also when using an input file
+			if (not re.search(args.match,imgName,flags=re.IGNORECASE)):
+				success = False
+			if (not re.search(args.Match,imgName)):
+				success = False
+			if (args.notmatch != '' and re.search(args.notmatch,imgName,flags=re.IGNORECASE)):
+				success = False
+			if (args.NotMatch != '' and re.search(args.NotMatch,imgName)):
+				success = False
+			if (args.age > 0):
+				age = time.time() - os.path.getmtime(imgName) ### +++ aus exif nehmen
+				age = age / 3600 / 24 # age in days
+				# print ("age: ",age," max age:" , args.age, success, age > args.age)
+				if (age > args.age):
+					success = False
+
+
+
+
+
+
+
 			if (success):
 				if (FirstTime):
-					key = blend (img1, img2, fadeTime, durationTime, blendString, imgName) #{'b': 0,'o': 0,'n': 1,'d': 1,'l': 0})
+					key = blendWrapper (img1, img2, fadeTime, durationTime, blendString, imgName, isVideo1, isVideo2, "", imgName) #{'b': 0,'o': 0,'n': 1,'d': 1,'l': 0})
 				else:
-					key = blend (img1, img2, fadeTime, durationTime, '', imgName)
+					key = blendWrapper (img1, img2, fadeTime, durationTime, '', imgName, isVideo1, isVideo2, "", imgName)
 				FirstTime = False
 				Back = False
 				if (key > 0):
 					# print (chr(key))
 					if ((key == ord('q')) or (key == 27)):
 						if (args.verbose >= 1):
-							print ("interrupted by user")
+							print ("# interrupted by user")
 						running = False
 
 					elif ((key == 8) or (key == KEY_LEFT)):
@@ -1048,8 +1174,10 @@ def doIt (argumentsDoIt):
 
 				
 				img1 = img2
+				isVideo1 = isVideo2
 			else:
-				print ("Skipped ", imgName)
+				# print ("Skipped ", imgName)
+				logMessage (0, "# Skipped " + imgName)
 				
 				
 			if (Back):
@@ -1064,27 +1192,30 @@ def doIt (argumentsDoIt):
 		loopCount = loopCount + 1
 
 		if ((key == ord('q')) or (key == 27)):
-			if (args.verbose >= 1):
-				print ("break")
+			# if (args.verbose >= 1):
+				# print ("break")
+			logMessage (0, "# break")
 			break
 			
 	# done, fade out
 	img2 = black
-		
+	isVideo2 = False
 	if maskingAllowed (transDict):
 		blendString = 'od'
 	else:
 		blendString = 'b'
 
 
-	blend (img1, img2, fadeTime, 0, blendString, imgName ) # {'b': 0,'o': 1,'n': 0,'d': 1,'l': 0})
+	blendWrapper (img1, img2, fadeTime, 0, blendString, imgName, isVideo1, isVideo2, "", "" ) # {'b': 0,'o': 1,'n': 0,'d': 1,'l': 0})
 	cv.waitKey (1000)
 
-	if (args.verbose >= 1):
-		print ("Done.")
+	# if (args.verbose >= 1):
+		# print ("Done.")
+	logMessage (0, "# Done.")
 		
 	if ("Y" in args.blackout.upper()):
-		print ('Press any key to stop')
+		print ('# In main window, press any key to exit')
+		writeToPic (img2, 'Press any key to exit')
 		cv.waitKey(0)
 		
 	cv.destroyAllWindows()
@@ -1098,38 +1229,81 @@ def doIt (argumentsDoIt):
 #----------------------------------------------------------------
 
 if __name__ == "__main__":
-	parser = argparse.ArgumentParser(description = "display all images in folder with nice transitions", epilog = "Esc/q=quit, p=pause on/off, f=freeze on/off, s(while blending)=save picture, c=copy filename to clipboard, b/o/n/d/l=change transition, left arrow or backspace=previous, right arrow or space=next, F2,F3,F4,F5=decrease/increase fade-time/duration" )
-	parser.add_argument("-p", "--path", type=str, default=".", help="path where images are found")
-	parser.add_argument("-s", "--subdirs", type=int, default=0, help="depth of subdirectories.  0 (default): no subdirs, -1: all subdirs")
-	parser.add_argument("-d", "--duration", type=float, default="5", help="time image is shown [seconds]. -1 for manual switching")
-	parser.add_argument("-f", "--fade", type=float, default="1.5", help="time of fading effect [seconds]")
-	parser.add_argument("-t", "--transition", type=str, default="all", help="types of transition. Combination of the letters b,o,n,d,l,i,x")
-	parser.add_argument("-m", "--match", type=str, default=".", help="mask filename (regex syntax, case insensitive)")
-	parser.add_argument("-M", "--Match", type=str, default=".", help="mask filename (regex syntax, case sensitive)")
-	parser.add_argument("-n", "--notmatch", type=str, default="", help="negative mask filename (regex syntax, case insensitive)")
-	parser.add_argument("-N", "--NotMatch", type=str, default="", help="negative mask filename (regex syntax, case sensitive)")
-	parser.add_argument("-pl", "--portrait_landscape", type=str, default="pl", help="filter portrait or landscape. p = portrait, l = landscape, pl (default) = both")
-	parser.add_argument("-e", "--enlarge", type=str, default="no", help="enlarge small images, default = no ")
-	parser.add_argument("-l", "--loop", type=int, default="1", help="nr. of loops, -1 = loop forever, default=1")
-	parser.add_argument("-L", "--limit", type=int, default="-1", help="limit length of show to minutes (approx.) by randomly skipping images and maintaining the order ")
-	parser.add_argument("-a", "--age",  type=float, default="-1.0", help="maximal age of file in days. -1.0 (default): all files")
-	parser.add_argument("-g", "--gray", type=int, default="0", help="0 (default): color, all else: convert to grayscale")
-	parser.add_argument("-r", "--random", type=int, default="-1", help="random shuffle. -1 (default): leave as is = depth-first-search, 0: sorted, 0..100: shuffle")
-	parser.add_argument("-i", "--input", type=str, default="", help="input file, containing filenames and parameters (script)")
-	parser.add_argument("-v", "--verbose", type=int, default="1", help="verbose ... 0=only errors, 1(Default)=print filenames, higher numbers = more information")
-	parser.add_argument("-o", "--output", type=str, default="", help="output video file (very experimental)")
-	parser.add_argument("-w", "--width", type=int, default="-1", help="width. -1 (default): automatic")
-	parser.add_argument("-hh", "--height", type=int, default="-1", help="height. -1 (default): automatic")
-	parser.add_argument("--fps", type=float, default=30.0, help="fps of output video (very experimental)")
-	parser.add_argument("-bg", "--background", type=str, default="#000000", help="background color in hex values (rgb) like #0fcc80")
-	parser.add_argument("-b", "--blackout", type=str, default="yes", help="yes/no. At the end of the show, keep the window dark until a key is pressed. Default = yes")
-	parser.add_argument("-ss", "--screensaver", type=str, default="yes", help="yes/no. Disable screensaver. Default = yes")
-	parser.add_argument("--scr", type=str, default="no", help="blendPics acts as screensaver (quit when a key is pressed), Default=no")
 
-	args = parser.parse_args(sys.argv[1:]) # sys.argv[1:] for enabling help in compiled version
+	if (len(sys.argv) == 2) and not (sys.argv[1].startswith('-')):		# one command line argument given
+		args = namedtuple ( 
+		"arguments", 
+		"path subdirs duration fade transition all match Match notmatch NotMatch portrait_landscape  enlargeloop limit age gray random input verbose output width height fps background blackout screensaver scr log sort videoplayer startimage"
+		)
 
+		args.path = sys.argv[1] # this one and only parameter is the path
+		
+		args.subdirs = -1
+		args.duration = 5
+		args.fade = 1.5
+		args.transition = "all"
+		args.match = "."
+		args.Match = "."
+		args.notmatch = ""
+		args.NotMatch = ""
+		args.portrait_landscape  = "pl"
+		args.enlarge = "no"
+		args.loop = 1
+		args.limit = -1
+		args.age = -1.0
+		args.gray = 0
+		args.random = 0
+		args.input = ""
+		args.verbose = 1
+		args.output = ""
+		args.width = -1
+		args.height = -1
+		args.fps = 30.0
+		args.background = "#000000"
+		args.blackout = "yes"
+		args.screensaver = "yes"
+		args.scr = "no"
+		args.log = ""
+		args.sort = ""
+		args.videoplayer = ""
+		args.startimage = ""
 
+	else:
+		parser = argparse.ArgumentParser(description = "display all images in folder with nice transitions", epilog = "Esc/q=quit, p=pause on/off, f=freeze on/off, s(while blending)=save picture, c=copy filename to clipboard, b/o/n/d/l=change transition, left arrow or backspace=previous, right arrow or space=next, F2,F3,F4,F5=decrease/increase fade-time/duration" )
+		parser.add_argument("-p", "--path", type=str, default=".", help="path where images are found")
+		parser.add_argument("-s", "--subdirs", type=int, default=0, help="depth of subdirectories.  0 (default): no subdirs, -1: all subdirs")
+		parser.add_argument("-d", "--duration", type=float, default="5", help="time image is shown [seconds]. -1 for manual switching")
+		parser.add_argument("-f", "--fade", type=float, default="1.5", help="time of fading effect [seconds]")
+		parser.add_argument("-t", "--transition", type=str, default="all", help="types of transition. Combination of the letters b,o,n,d,l,i,x")
+		parser.add_argument("-m", "--match", type=str, default=".", help="mask filename (regex syntax, case insensitive)")
+		parser.add_argument("-M", "--Match", type=str, default=".", help="mask filename (regex syntax, case sensitive)")
+		parser.add_argument("-n", "--notmatch", type=str, default="", help="negative mask filename (regex syntax, case insensitive)")
+		parser.add_argument("-N", "--NotMatch", type=str, default="", help="negative mask filename (regex syntax, case sensitive)")
+		parser.add_argument("-pl", "--portrait_landscape", type=str, default="pl", help="filter portrait or landscape. p = portrait, l = landscape, pl (default) = both")
+		parser.add_argument("-e", "--enlarge", type=str, default="no", help="enlarge small images, default = no ")
+		parser.add_argument("-l", "--loop", type=int, default="1", help="nr. of loops, -1 = loop forever, default=1")
+		parser.add_argument("-L", "--limit", type=int, default="-1", help="limit length of show to minutes (approx.) by randomly skipping images and maintaining the order ")
+		parser.add_argument("-a", "--age",  type=float, default="-1.0", help="maximal age of file in days. -1.0 (default): all files")
+		parser.add_argument("-g", "--gray", type=int, default="0", help="0 (default): color, all else: convert to grayscale")
+		parser.add_argument("-r", "--random", type=int, default="-1", help="random shuffle. -1 (default): leave as is = depth-first-search, 0: sorted, 0..100: shuffle")
+		parser.add_argument("-i", "--input", type=str, default="", help="input file, containing filenames [and parameters] (script)")
+		parser.add_argument("-v", "--verbose", type=int, default="1", help="verbose ... 0=only errors, 1(Default)=print filenames, higher numbers = more information")
+		parser.add_argument("-o", "--output", type=str, default="", help="output video file (very experimental)")
+		parser.add_argument("-w", "--width", type=int, default="-1", help="width. -1 (default): automatic")
+		parser.add_argument("-hh", "--height", type=int, default="-1", help="height. -1 (default): automatic")
+		parser.add_argument("--fps", type=float, default=30.0, help="fps of output video (very experimental)")
+		parser.add_argument("-bg", "--background", type=str, default="#000000", help="background color in hex values (rgb) like #0fcc80")
+		parser.add_argument("-b", "--blackout", type=str, default="yes", help="yes/no. At the end of the show, keep the window dark until a key is pressed. Default = yes")
+		parser.add_argument("-ss", "--screensaver", type=str, default="yes", help="yes/no. Disable screensaver. Default = yes")
+		parser.add_argument("--scr", type=str, default="no", help="blendPics acts as screensaver (quit when a key is pressed), Default=no")
+		parser.add_argument("--log", type=str, default="", help="filename to log actions for debug purposes. Empty string(default): do not log")
+		parser.add_argument ("--sort", type=str, default="", help="sorting options ... syntax: tbd")
+		parser.add_argument ("--videoplayer", type=str, default="", help="external command to play video. Default: system settings")
+		parser.add_argument ("--startimage", type=str, default="", help="image name to start with (if not starting with first image)")
 
+		args = parser.parse_args(sys.argv[1:]) # sys.argv[1:] for enabling help in compiled version
 
+	black = None
+	startImageFound = False
 	doIt (args)
 
