@@ -15,7 +15,7 @@ Keywords:
   * file ... filename, ignoring the directory 
 4. exif ... Meta information given by the camera. Option1 may be: 
   * time
-  * any other string which is reported by your camera, like f_number
+  * any other string which is reported by your camera, like f_number or focal_length_in_35mm_film
 5. pic ... the picture itself. Option1 may be:
   * hue ... average color. You may want to have all sunset pictures together.
   * sat ... average saturation. You may want to have the black-and-white images together
