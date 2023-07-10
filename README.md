@@ -107,6 +107,15 @@ A detailed explanation of transitions is [here](transitions.md)
                         yes/no. Disable screensaver. Default = yes
 *   --scr SCR,          blendPics acts as screensaver (quit when a key is
                         pressed), Default=no
+*  --log LOG             filename to log actions for debug purposes. Empty
+                        string(default): do not log
+*  --sort SORT           sorting options ... syntax: tbd
+*  --videoplayer VIDEOPLAYER
+                        external command to play video. Default: system
+                        settings
+*  --startimage STARTIMAGE
+                        image name to start with (if not starting with first
+                        image)
 
 Esc/q=quit, p=pause on/off, f=freeze on/off, s(while blending)=save picture,
 c=copy filename to clipboard, b/o/n/d/l=change transition, left arrow or
