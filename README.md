@@ -32,6 +32,7 @@ __Although it is a console application, all keyboard input goes to the graphical
 * optionally read list of pictures from file 
 * stop transition to see "the third image"
 * No Ken Burns Effect (because I hate it)
+* play videos (with external player)
 * optionally write to video (experimental)
 * comiled or interpreted (python) version available 
 * no installation, just run the program (compiled version)
@@ -39,7 +40,11 @@ __Although it is a console application, all keyboard input goes to the graphical
 * optionally disable screensaver while show is running (Windows only)
 * optionally leave screen black after last picture, wait for keypress
 
+## transitions
 A detailed explanation of transitions is [here](transitions.md)
+
+## sorting 
+a detailed explanation of sorting is [here](sorting.md)
 
 ## command line arguments
 * usage: blendPics.py [-h] [-p PATH] [-s SUBDIRS] [-d DURATION] [-f FADE]
