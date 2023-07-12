@@ -30,3 +30,6 @@ To all sorting options you may add :down which reverses the sort order.
 
 ## Example: 
 > --sort os:time:down;exif:f_number;pic:asp:down
+
+# random (shuffle)
+If you use sorting **and** random, the shuffling will be applied after sorting. You may sort and then apply a mild shuffling like --random 10, which will more or less keep the sorted order, but make it less strict. This could be an interesting effect.  
