@@ -26,7 +26,7 @@ It is a console application which needs a little computer knowledge to use it.
 * No Ken Burns Effect (because I hate it)
 * play videos (with external player)
 * optionally write to video (experimental)
-* comiled or interpreted (python) version available 
+* compiled or interpreted (python) version available 
 * no installation, just run the program (compiled version)
 * leaves no trace on your PC
 * optionally disable screensaver while show is running (Windows only)
