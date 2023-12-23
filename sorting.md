@@ -25,6 +25,10 @@ Multiple sorting keywords (separated by semicolons) result in consecutive sort o
   * asp ... aspect ratio. You may want to avoid jumping too much between portrait and landscape
   * size ... total size, calculated as width*height 
 
+The sorting options are executed in the same order they are given in the parameter. Later sortings will possibly (partially) override the previous ones. For example, if you want to see images of the first directory, then the ones from the second directory and so on, and within directories you want to see the newest image first and the oldest last, your sort parameter will look like this: 
+
+--sort os:time:down;os:dir
+
 ## reverse sorting
 To all sorting options you may add :down which reverses the sort order.
 
