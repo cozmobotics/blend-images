@@ -6,7 +6,7 @@ This may be convenient for you, otherwise use the sort feature.
 
 The **basic syntax** is: --sort keyword:option1[:option2][;keyword:option1[:option2][...]
 
-Multiple sorting keywords (separated by semicolons) result in consecutive sort operations. According to the Python's [documentation](https://docs.python.org/3/howto/sorting.html#sort-stability-and-complex-sorts), *sorts are guaranteed to be stable. That means that when multiple records have the same key, their original order is preserved*. 
+Multiple sorting keywords (separated by semicolons) result in consecutive sort operations. 
 
 ## Keywords and options: 
 * **name**
@@ -25,15 +25,29 @@ Multiple sorting keywords (separated by semicolons) result in consecutive sort o
   * asp ... aspect ratio. You may want to avoid jumping too much between portrait and landscape
   * size ... total size, calculated as width*height 
 
-The sorting options are executed in the same order they are given in the parameter. Later sortings may (partially) override the previous ones. For example, if you want to see images of the first directory, then the ones from the second directory and so on, and within directories you want to see the newest image first and the oldest last, your sort parameter will look like this: 
-
---sort os:time:down;os:dir
 
 ## reverse sorting
 To all sorting options you may add :down which reverses the sort order.
 
-## Example: 
-> --sort os:time:down;exif:f_number;pic:asp:down
+## Examples: 
+
+> --sort os:time
+
+will show the oldest pictures first and the newest pictures last 
+
+> --sort pic:asp:down
+
+will show the lanscape images first and then portrait images
+
+## Multiple sorting
+
+The sorting options are executed in the same order they are given in the parameter, separated by colons (:). Later sortings may (partially) override the previous ones. The last sort will "win".
+
+According to the Python's [documentation](https://docs.python.org/3/howto/sorting.html#sort-stability-and-complex-sorts), *sorts are guaranteed to be stable. That means that when multiple records have the same key, their original order is preserved*. 
+
+For example, if you want to see images of the first directory, then the ones from the second directory and so on, and within directories you want to see the newest image first and the oldest last, your sort parameter will look like this: 
+
+> --sort os:time:down;os:dir
 
 # random (shuffle)
 If you use sorting **and** random, the shuffling will be applied after sorting. You may sort and then apply a mild shuffling like --random 10, which will more or less keep the sorted order, but make it less strict. This could be an interesting effect.  
