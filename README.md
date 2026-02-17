@@ -13,13 +13,14 @@ It is a console application which needs a little computer knowledge to use it.
 ## Features:
 
 * some transition types available. Try them out!
-* Optionally dig into subdirectories,
+* Optionally dig into subdirectories, including .lnk-files (link under Windows),
 * complex sorting methods available
 * Optionally random-shuffle images, "mild shuffling" available
 * Optionally loop through files, 
 * Optionlly filter protrait or landscape images (for nicer transitions)
 * Copy current path+filename to clipboard, 
-* move back and forward, timed or on keypress, 
+* move back and forward, timed or on keypress,
+* open current picture in default viewer by pressing Enter
 * filter portrait or landscape images, filter newest files, add custom filter (regex)
 * optionally read list of pictures from file 
 * stop transition to see "the third image"
@@ -153,4 +154,5 @@ fade-time/duration
 * White line on top and left margin when running in full-screen
 * No error detection when video is not writable (e.g. disk full)
 * Todo's: see program code
-* Screensaver's search directory is hard-coded to userdir/Pictures, configuration dialog is not yet implemented
+* Screensaver's search directory is hard-coded to userdir/Pictures, configuration dialog is not yet implemented. 
+  If the pictures you want to use for the screensaver are in a different directory, add a link (.lnk-file under Windows) in your Pictures directory
