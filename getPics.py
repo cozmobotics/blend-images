@@ -1,4 +1,8 @@
+'''
+Routines for reading, shuffeling and sorting images 
 
+2026-02-17: support for windows .lnk (= link) files
+'''
 import os
 import random
 
@@ -8,6 +12,12 @@ import sys
 
 import exifRoutines
 
+import win32com.client
+
+def get_lnk_target(path):	# 2026-02-17
+    shell = win32com.client.Dispatch("WScript.Shell")
+    shortcut = shell.CreateShortCut(path)
+    return shortcut.Targetpath  # plus z.B. shortcut.Arguments bei Bedarf
 
 #---------------------------------------------------------------
 def meanVal (pic):
@@ -23,7 +33,7 @@ def meanVal (pic):
 	# bright_pixel will give max illumination value in the image
 
 	mean_val = np.mean (v)
-	print ("mean_val", mean_val)
+	# print ("mean_val", mean_val)
 	return mean_val
 #---------------------------------------------------------------
 def meanSat (pic):
@@ -39,7 +49,7 @@ def meanSat (pic):
 	# bright_pixel will give max illumination value in the image
 
 	mean_sat = np.mean (s)
-	print ("mean_sat", mean_sat)
+	# print ("mean_sat", mean_sat)
 	return mean_sat
 
 #---------------------------------------------------------------
@@ -51,12 +61,39 @@ def meanHue (pic):
 	except Exception:
 		return 0
 	h,s,v = cv2.split(img_hsv)
+	
 	# bright_pixel = np.amax(v)
 	# print(bright_pixel)
 	# bright_pixel will give max illumination value in the image
 
 	mean_hue = np.mean (h)
-	print ("mean_hue", mean_hue)
+	# print ("mean_hue", mean_hue)
+	return mean_hue
+
+#---------------------------------------------------------------
+def meanHue2 (pic):
+
+	''' mean hue of the image with correction of hue. Looks more natural, but takes long. '''
+
+	try: 
+		img = cv2.imread(pic)
+		img_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+	except Exception:
+		return 0
+	h,s,v = cv2.split(img_hsv)
+	
+	# correction of hue: 170 looks rather warm
+	for row in range (len(h)):
+		for col in range (len(h[0])):
+			if h[row][col] > 145:
+				h[row][col] = 170 - h[row][col]
+	
+	# bright_pixel = np.amax(v)
+	# print(bright_pixel)
+	# bright_pixel will give max illumination value in the image
+
+	mean_hue = np.mean (h)
+	# print ("mean_hue", mean_hue)
 	return mean_hue
 
 #--------------------------------------------------------------
@@ -77,18 +114,43 @@ def getSize (pic):
 	except Exception:
 		return 1
 	size = w * h
+	# print ("size: ", size)
 	return size
+
+#--------------------------------------------------------------
+def getHeight (pic):
+	try: 
+		img = cv2.imread(pic)
+		(h,w,c) = img.shape
+	except Exception:
+		return 1
+	# print ("height: ", h)
+	return h
+
+#--------------------------------------------------------------
+def getWidth (pic):
+	try: 
+		img = cv2.imread(pic)
+		(h,w,c) = img.shape
+	except Exception:
+		return 1
+	return w
 
 #--------------------------------------------------------------
 def getOsDir (pic):
 	pic = pic.lower()
 	(head,tail) = os.path.split(pic)
 	return head
+
 #--------------------------------------------------------------
 def getOsFile (pic):
 	pic = pic.lower()
 	(head,tail) = os.path.split(pic)
 	return tail
+#--------------------------------------------------------------
+def getOsFullName (pic):
+	pic = pic.lower()
+	return pic
 #----------------------------------------------------------------
 # https://thispointer.com/python-how-to-get-list-of-files-in-directory-and-sub-directories/
 
@@ -107,6 +169,11 @@ def getListOfFiles(dirName, depth):
 	for entry in listOfFile:
 		# Create full path
 		fullPath = os.path.join(dirName, entry)
+		
+		fName,fExt = os.path.splitext(entry)	# 2026-02-17
+		if fExt == ".lnk":
+			fullPath = get_lnk_target(fullPath)
+		
 		# If entry is a directory then get the list of files in this directory 
 		if (os.path.isdir(fullPath)):
 			if (depth != 0):
@@ -158,22 +225,38 @@ def bubbleShuffle (arrayAll, randomPercent, probability, sortParameter):
 						sortString = "getOsDir(x)"
 					elif sortOptions[1] == "file":
 						sortString = "getOsFile(x)"
+					elif sortOptions[1] == "fullname":
+						sortString = "getOsFullName(x)"
+					else:
+						print ("Please select sort option for sort method os: time, dir, file, fullname")
+						sys.exit()
 			elif sortOptions[0] == "name":
 				sortString = "x"
 			elif sortOptions[0] == "pic":
 				if len (sortOptions) >= 2:
 					if sortOptions[1] == "hue":
 						sortString = sortString + "meanHue(x)"
+					elif sortOptions[1] == "hue2":
+						sortString = sortString + "meanHue2(x)" # with correction, but very slow
 					elif sortOptions[1] == "sat":
 						sortString = sortString + "meanSat(x)"
 					elif sortOptions[1] == "val":
 						sortString = sortString + "meanVal(x)"
 					elif sortOptions[1] == "asp":
 						sortString = sortString + "getAspectRatio(x)"
+					elif sortOptions[1] == "height":
+						sortString = sortString + "getHeight(x)"
+					elif sortOptions[1] == "width":
+						sortString = sortString + "getWidth(x)"
 					elif sortOptions[1] == "size":
 						sortString = sortString + "getSize(x)"
+					else:
+						print ("Please select sort option for sort method pic: hue, sat, val, height, width, size")
+						sys.exit()
 			else: 
-				sortString = sortMethod # if anything else is specified, pass it directly to the sort routine
+				# sortString = sortMethod # if anything else is specified, pass it directly to the sort routine
+				print ("Please select sortMethod = exif, os, name, pic")
+				sys.exit()
 			
 			if sortOptions[ -1] == "down": # up | down
 				reverse = True
@@ -181,7 +264,14 @@ def bubbleShuffle (arrayAll, randomPercent, probability, sortParameter):
 				reverse = False
 			
 			# logMessage (2, "sort key = " + sortString)
-			array.sort(key = lambda x: eval(sortString), reverse = reverse) 
+			if sortString != 'none':
+				# array.sort(key = lambda x: eval(sortString), reverse = reverse) 
+				array.sort(key = lambda x: eval(sortString), reverse = reverse) 
+				
+				# +++++++++++++++++++ debug +++++++++++++++++
+				print ("#>>>>>>>>>>>>>>>>>>>>", sortString, "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
+				# for x in array:
+					# print (eval(sortString))
 	
 	# array.sort(key= lambda x : exifRoutines.getImageTime(x))  ###+++ workaround, immer exif time verwenden
 	# logMessage (1, "# done sorting....")
