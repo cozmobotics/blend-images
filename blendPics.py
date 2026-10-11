@@ -111,6 +111,12 @@
 # 2025-11-17 pressing Enter (13) opens image file in operating system (with the default image viewer)
 # 2026-01-08 Bugxfix: crash when reading from textfile and applying --age parameter and file is missing
 # 2026-02-17 change in getPics.py: added support for windows .lnk (= link) files
+# 2026-06-23 bugfix: crash when reading from textfile and picture does not exist
+# 2026-06-23 bugfix: crash when converting to gray fails (AVIF.DLL onnt installed,...) 
+# 2026-09-15 bugfix: re-enable clipboard fuctions
+# 2026-09-15 MinSize parameter added 
+# 2026-09-15 commands g and e (convert to gray annd enlarge): show effect immediately
+# 2026-10-10 scr mode: ignore videos (enbles stepping back)
 
 import numpy as np
 import cv2 as cv
@@ -119,7 +125,8 @@ import os
 import argparse
 import re
 import random
-import clipboard
+# import clipboard # pyperclip is better  # 2026-09-15
+import pyperclip
 import pyautogui # for hiding cursor
 import math # for sinus in light curve
 import sys  # for printing arguments and enabling help in compiled version
@@ -131,6 +138,8 @@ from collections import namedtuple
 from pydub import AudioSegment # for length of audio file
 import getPics
 import messagebox
+
+import multiprocessing
 
 SPI_SETSCREENSAVEACTIVE = 17
 
@@ -212,7 +221,7 @@ def scaleImage (tempImg, screenWidth, screenHeight, padColor, convertToGray):
 			success = False
 			logMessage (2, "# portrait/landscape filter")
 		
-		if (w < screenWidth / 2) and (h < screenHeight / 2):
+		if (w < screenWidth * args.MinSize / 100) and (h < screenHeight * args.MinSize / 100): # 2026-09-15
 			success = False
 			logMessage (2, "# image too small")
 
@@ -256,9 +265,12 @@ def scaleImage (tempImg, screenWidth, screenHeight, padColor, convertToGray):
 			success = False
 			logMessage (0, "#>>>> ERROR: image has color depth of " + str(c))
 	
-	if (convertToGray != 0):
-		tempImg = cv.cvtColor(tempImg, cv.COLOR_BGR2GRAY)
-		tempImg = cv.cvtColor(tempImg, cv.COLOR_GRAY2BGR) # convert back because we still need a color depth of 3 
+	if (args.gray != 0):
+		try:	# bugfix 2026-06-23
+			tempImg = cv.cvtColor(tempImg, cv.COLOR_BGR2GRAY)
+			tempImg = cv.cvtColor(tempImg, cv.COLOR_GRAY2BGR) # convert back because we still need a color depth of 3 
+		except Exception as e:
+			logMessage (0, "#>>>> ERROR: cannot convert to grayscale")
 	
 	return (tempImg, success)
 	
@@ -334,7 +346,7 @@ def addXor(img1,bright1,img2,bright2):
 			# cv.waitKey(1)
 	
 	return res
-
+		
 #----------------------------------------------------------------
 def addMasked(img1,bright1,img2,bright2, inverted, oldNew):
 	'''add 2 images by calculating a mask which is derived from one of the images'''
@@ -403,28 +415,19 @@ def savePic (imgToWrite):
 		
 #----------------------------------------------------------------
 def evalKey (key):
-	global convertToGray
+	# global convertToGray
 	global durationTime
 	global fadeTime
 	global transDict
 	global all
 	
 	if (key > 0):
-		if (key == ord('g')):
-			convertToGray = abs(convertToGray - 1)
+		# if (key == ord('g')):
+			# convertToGray = abs(convertToGray - 1)
 			# if (args.verbose >= 1):
 				# print ("convertToGray:", convertToGray)
-			key = -1
-		# elif (key == 13):
-			# pass
-		elif (key == ord('e')):
-			if (args.enlarge == "yes"):
-				args.enlarge = "no"
-				print ("small images are not enlarged")
-			else:
-				args.enlarge = "yes"
-				print ("small images are enlarged")
-		elif (key == KEY_F2):
+			# key = -1
+		if (key == KEY_F2):
 			durationTime = durationTime / 1.5
 			if (args.verbose >= 1):
 				print ("#duration: ", "%.2f" % durationTime)
@@ -538,6 +541,11 @@ def blend (img1, img2, fadeTime, duration, transition, description):
 		global KEY_HOME 
 		global KEY_END  
 		global KEY_DEL  
+		
+		global screenWidth
+		global screenHeight
+		global bgColor
+
 
 		if (transition == ""):
 			possible = []
@@ -625,7 +633,7 @@ def blend (img1, img2, fadeTime, duration, transition, description):
 			if (tempKey != -1):
 				key = tempKey
 				
-				if (args.scr == "yes") and not (tempKey in [KEY_LEFT, KEY_RIGHT]):	# when blendPics acts as screensaver, quit immediately
+				if (args.scr == "yes") and not (tempKey in [KEY_LEFT, KEY_RIGHT, 'c', 'C']):	# when blendPics acts as screensaver, quit immediately
 					# if (args.verbose > 1):
 						# print ("screensaver mode, stopping immediately")
 					logMessage (1, "# screensaver mode, stopping immediately")
@@ -698,6 +706,8 @@ def blend (img1, img2, fadeTime, duration, transition, description):
 
 			
 			tempKey = evalKey (tempKey)
+			nums,filename = description.split(':', 1)
+
 			
 			if (tempKey == ord('p')):
 				pause = not pause
@@ -712,8 +722,57 @@ def blend (img1, img2, fadeTime, duration, transition, description):
 				if (tempKey == ord('?')):
 					writeToPic (img2, description)
 				if (tempKey == 13):
-					nums,filename = description.split(':', 1)
+#					nums,filename = description.split(':', 1)
 					os.system (filename)
+				if (key == ord('c')):
+					if (args.verbose >= 1):
+						print ("* copying ", filename, " to clipboard")
+						writeToPic (img2, "copying " + filename + " to clipboard")
+					pyperclip.copy (filename)
+				if (key == ord('C')):
+					if (args.verbose >= 1):
+						print ("adding ", filename, " to clipboard")
+						writeToPic (img2, "* adding " + filename + " to clipboard")
+					oldClip = pyperclip.paste()
+					newClip = oldClip + '\r\n' + filename
+					pyperclip.copy (newClip)
+					
+				if (key == ord('g')):
+					args.gray = abs(args.gray - 1)
+					if (args.verbose >= 1):
+						print ("convert To Gray:", args.gray)
+					# key = -1
+					
+					# 2026-09-15
+					# display the image ith new settings
+					# we have to re-read it 
+					(tempImg, success) = imread_funny(filename)
+					if (success):
+						(img1, success) = scaleImage (tempImg, screenWidth, screenHeight, bgColor, args.gray) # +++
+						cv.imshow ('blendPics', img1)
+						cv.waitKey (1)
+					else:
+						print ("ERROR reading image " + filename)
+
+				if (key == ord('e')):
+					if (args.enlarge == "yes"):
+						args.enlarge = "no"
+						print ("small images are not enlarged")
+					else:
+						args.enlarge = "yes"
+						print ("small images are enlarged")
+					
+					# 2026-09-15
+					# display the image ith new settings
+					# we have to re-read it 
+					(tempImg, success) = imread_funny(filename)
+					if (success):
+						(img1, success) = scaleImage (tempImg, screenWidth, screenHeight, bgColor, args.gray) # +++
+						cv.imshow ('blendPics', img1)
+						cv.waitKey (1)
+					else:
+						print ("ERROR reading image " + filename)
+
 		# print ("key:", key)
 		return (key)
 		
@@ -836,7 +895,7 @@ def doIt (argumentsDoIt):
 	global rawTransDict
 	global all
 	global args
-	global convertToGray
+	# global convertToGray
 	global timeBeginVideo
 	
 	global durationTime
@@ -885,10 +944,13 @@ def doIt (argumentsDoIt):
 	global KEY_PGDN 
 	global KEY_HOME 
 	global KEY_END  
-	global KEY_LEFT  
 	global KEY_DEL  
 	global black
 	global startImageFound
+	
+	global screenWidth
+	global screenHeight
+	global bgColor
 
 	KEY_UP   = 0x260000
 	KEY_DOWN = 0x280000
@@ -970,7 +1032,7 @@ def doIt (argumentsDoIt):
 
 	fadeTime = args.fade
 	durationTime = args.duration
-	convertToGray = args.gray
+	# convertToGray = args.gray
 
 	filenamesAll = []
 
@@ -1021,7 +1083,10 @@ def doIt (argumentsDoIt):
 						(a,b) = filename.split('#', 1)
 						filename = a
 					filename = filename.strip()  # to avoid blank lines on the screen 
-					filenamesAll.append (filename)
+					if os.path.exists(filename): # bugfix 2026-06-23
+						filenamesAll.append (filename)
+					else:
+						print (">>> file not found: " + filename)
 				# filenamesAll = filenames
 				inputList.close()
 
@@ -1070,6 +1135,8 @@ def doIt (argumentsDoIt):
 	if ((w < 0) or (h < 0)):
 		(a,b,w,h) = cv.getWindowImageRect('blendPics')
 	aspectRatioScreen =  (w+1) / (h+1)
+	screenWidth = w+1   # 2026-09-15
+	screenHeight = h+1 
 	# if (args.verbose >= 1):
 		# print ('Screen: ', w+1, h+1, "%.2f" % aspectRatioScreen)
 	logMessage (1, '# Screen: ' +  str(w+1) + "x" + str(h+1) + ", " + str(aspectRatioScreen))
@@ -1171,10 +1238,10 @@ def doIt (argumentsDoIt):
 					# (img2, success) = imread_funny(getListOfFiles) # +++ ????
 					(img2, success) = imread_funny(imgName)
 					if (success):
-						(img2, success) = scaleImage(img2, w+1, h+1, bgColor, convertToGray)
+						(img2, success) = scaleImage(img2, w+1, h+1, bgColor, args.gray)
 			
 			
-			elif (imgName.lower().endswith(extensionsVideo)): #+++ use os.path.splitext
+			elif (imgName.lower().endswith(extensionsVideo) and (args.scr != "yes")): #+++ use os.path.splitext # 2026-10-10
 				success = True
 				isVideo2 = True
 				# if args.output != '':    # *** geht nicht
@@ -1232,18 +1299,9 @@ def doIt (argumentsDoIt):
 					elif ((key == 8) or (key == KEY_LEFT)):
 						Back = True
 						key = -1
-					elif (key == ord('c')):
-						if (args.verbose >= 1):
-							print ("copying ", imgName, " to clipboard")
-						clipboard.copy (imgName)
-						key = -1
-					elif (key == ord('C')):
-						if (args.verbose >= 1):
-							print ("copying ", imgName, " to clipboard")
-						clipboard.copy (clipboard.paste() + '\r\n' + imgName)
-						key = -1
-					elif (key == ord('e')):
-						os.system("start cmd /k \"" + imgName + '\"') # windows-specific! 
+
+						
+
 
 				
 				img1 = img2
@@ -1303,10 +1361,11 @@ def doIt (argumentsDoIt):
 
 if __name__ == "__main__":
 
+	# single argument (path or input file): fill in all the missing arguments 
 	if (len(sys.argv) == 2) and not (sys.argv[1].startswith('-')):		# only one command line argument given
 		args = namedtuple ( 
 		"arguments", 
-		"path subdirs duration fade transition all match Match notmatch NotMatch portrait_landscape  enlargeloop limit age gray random input verbose output width height fps background blackout screensaver scr log sort videoplayer startimage"
+		"path subdirs duration fade transition all match Match notmatch NotMatch portrait_landscape  enlargeloop limit age gray random input delimiter verbose output width height MinSize fps background blackout screensaver scr log sort videoplayer startimage"
 		)
 		
 		args.path = "."
@@ -1326,10 +1385,12 @@ if __name__ == "__main__":
 		args.gray = 0
 		args.random = 0
 		args.input = ""
+		args.delimiter = '#'
 		args.verbose = 1
 		args.output = ""
 		args.width = -1
 		args.height = -1
+		args.MinSize = 70
 		args.fps = 30.0
 		args.background = "#000000"
 		args.blackout = "yes"
@@ -1379,6 +1440,7 @@ if __name__ == "__main__":
 		parser.add_argument("-o", "--output", type=str, default="", help="output video file (very experimental)")
 		parser.add_argument("-w", "--width", type=int, default="-1", help="width. -1 (default): automatic")
 		parser.add_argument("-hh", "--height", type=int, default="-1", help="height. -1 (default): automatic")
+		parser.add_argument("-ms", "--MinSize", type=int, default="50", help="minimum size of image, percentage of width and height. -1 (default): 50%")  # 2026-09-15
 		parser.add_argument("--fps", type=float, default=30.0, help="fps of output video (very experimental)")
 		parser.add_argument("-bg", "--background", type=str, default="#000000", help="background color in hex values (rgb) like #0fcc80")
 		parser.add_argument("-b", "--blackout", type=str, default="yes", help="yes/no. At the end of the show, keep the window dark until a key is pressed. Default = yes")
@@ -1388,7 +1450,8 @@ if __name__ == "__main__":
 		parser.add_argument ("--sort", type=str, default="", help="sorting options ... syntax: see https://github.com/cozmobotics/blend-images/blob/main/sorting.md")
 		parser.add_argument ("--videoplayer", type=str, default="", help="external command to play video. Default: system settings")
 		parser.add_argument ("--startimage", type=str, default="", help="image name to start with (if not starting with first image)")
-		parser.add_argument ("--audio", type=str, default="", help="audio file, used to trim show to length of audio")
+		parser.add_argument ("--audio", type=str, default="", help="audio file, used to trim show to length of audio (experimental)") 
+		
 		
 
 		args = parser.parse_args(sys.argv[1:]) # sys.argv[1:] for enabling help in compiled version

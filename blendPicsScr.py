@@ -3,8 +3,9 @@
    ************
    the blendPics screensaver 
    
-   plendPics.py is an interactive Python script to display photos with interesting transitions
-   blendPicsScr is a Windows screensaver which uses plendPics 
+   blendPics.py is an interactive Python script to display photos with interesting transitions.
+   blendPicsScr is a Windows screensaver which uses plendPics. 
+   Tested under Windows 10, so far.
    
    How to use:
    1) write your preferences into the structure "arguments" below (refer to blendPics help screen)
@@ -36,15 +37,17 @@ if len(sys.argv) > 1:
 	
 homeDir = os.path.expanduser("~")
 pictDir = os.path.join (homeDir, "Pictures")
-
+# logFile = ""
+logFile = os.path.join (homeDir, "blendPicsScr_log.txt")
 
 arguments = namedtuple ( 
 	"arguments", 
-	"path subdirs duration fade transition all match Match notmatch NotMatch portrait_landscape loop limit age gray random input verbose output width height fps background blackout screensaver scr"
+	"path delimiter subdirs duration fade transition all match Match notmatch NotMatch portrait_landscape  enlargeloop limit age gray random input verbose output width height fps background blackout screensaver scr log sort videoplayer startimage audio"
 	)
 	
 # arguments.path = "d:/Digi_phot/"
 arguments.path = pictDir
+arguments.delimiter = "#"
 arguments.subdirs = -1
 arguments.duration = 15
 arguments.fade = 3
@@ -54,21 +57,30 @@ arguments.Match = "."
 arguments.notmatch = ""
 arguments.NotMatch = ""
 arguments.portrait_landscape  = "pl"
-arguments.loop = 1
+arguments.enlarge = "no"
+arguments.loop = -1
 arguments.limit = -1
 arguments.age = -1.0
 arguments.gray = 0
 arguments.random = 100
 arguments.input = ""
-arguments.verbose = 2
+arguments.verbose = 1
 arguments.output = ""
 arguments.width = -1
 arguments.height = -1
+arguments.MinSize = 50  # 2026-09-15
 arguments.fps = 30.0
 arguments.background = "#000000"
 arguments.blackout = "no"
 arguments.screensaver = "no"
 arguments.scr = "yes"
+# arguments.log = logFile
+arguments.log = ""
+arguments.sort = ""
+arguments.videoplayer = "none"
+arguments.startimage = ""
+arguments.audio = ""
+
 
 	
 blendPics.doIt (arguments)
