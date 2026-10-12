@@ -132,8 +132,6 @@ A single argument (with no "-" sign) can contain
 *   -ms, --MinSize
                         minimum size of image, percentage of width and height.  (default: 50%")   
 *   --fps FPS             fps of output video (very experimental)
-*   -bg BACKGROUND, --background BACKGROUND
-                        background color in hex values (rgb) like #aabbcc
 *  -bg BACKGROUND, --background BACKGROUND
                         background color in hex values (rgb) like #0fcc80
 *  -b BLACKOUT, --blackout BLACKOUT
