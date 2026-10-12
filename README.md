@@ -66,6 +66,16 @@ A detailed explanation of transitions is [here](transitions.md)
 a detailed explanation of sorting is [here](sorting.md)
 
 ## command line arguments
+There are two ways to use blenPdics:
+* single argument
+* linux-like arguments
+
+### single argument
+A single argument (with no "-" sign) can contain 
+* the address of a directory containing images or 
+* the address of a text file containing addresses of imges
+### linux-like arguments
+
 * usage: blendPics.py [-h] [-p PATH] [-s SUBDIRS] [-d DURATION] [-f FADE]
                  [-t TRANSITION] [-m MATCH] [-M MATCH] [-n NOTMATCH]
                  [-N NOTMATCH] [-pl PORTRAIT_LANDSCAPE] [-l LOOP]
@@ -119,6 +129,8 @@ a detailed explanation of sorting is [here](sorting.md)
                         width. -1 (default): automatic
 *   -hh HEIGHT, --height HEIGHT
                         height. -1 (default): automatic
+*   -ms, --MinSize
+                        minimum size of image, percentage of width and height.  (default: 50%")   
 *   --fps FPS             fps of output video (very experimental)
 *   -bg BACKGROUND, --background BACKGROUND
                         background color in hex values (rgb) like #aabbcc
