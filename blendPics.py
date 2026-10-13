@@ -117,6 +117,7 @@
 # 2026-09-15 MinSize parameter added 
 # 2026-09-15 commands g and e (convert to gray annd enlarge): show effect immediately
 # 2026-10-10 scr mode: ignore videos (enbles stepping back)
+# 2026-10-13 bugfix in "add argument" section (help ddid not work)
 
 import numpy as np
 import cv2 as cv
@@ -1417,8 +1418,8 @@ if __name__ == "__main__":
 
 
 	else: # more than one argument
-		parser = argparse.ArgumentParser(description = "display all images in folder with nice transitions. For more information, please visit https://github.com/cozmobotics/blend-images/tree/main#readme", epilog = "Esc/q=quit, e=enlarge on/off, p=pause on/off, f=freeze on/off, s(while blending)=save picture, c=copy filename to clipboard, b/o/n/d/l/i/x=change transition, left arrow or backspace=previous, right arrow or space=next, F2,F3,F4,F5=decrease/increase duration/fade-time, ENTER=open image in default viewer. " )
-		parser.add_argument("-p", "--path", type=str, default=".", help="path where images are found. Multiple pths can be separated by #")
+		parser = argparse.ArgumentParser(description = "display all images in folder with nice transitions. For more information, please visit https://github.com/cozmobotics/blend-images/tree/main#readme", epilog = "Esc/q=quit, e=enlarge on/off, p=pause on/off, f=freeze on/off, s(while blending)=save picture, c/C=copy/add filename to clipboard, b/o/n/d/l/i/x=change transition, left arrow or backspace=previous, right arrow or space=next, F2,F3,F4,F5=decrease/increase duration/fade-time, ENTER=open image in default viewer. " )
+		parser.add_argument("-p", "--path", type=str, default=".", help="path where images are found. Multiple paths can be separated by #")
 		parser.add_argument("-i", "--input", type=str, default="", help="input file, containing filenames [and parameters] (script)")
 		parser.add_argument(      "--delimiter", type=str, default="#", help="delimiter or path and input, to specify multiple paths/files. default: #")
 		parser.add_argument("-s", "--subdirs", type=int, default=0, help="depth of subdirectories.  0 (default): no subdirs, -1: all subdirs")
@@ -1440,7 +1441,7 @@ if __name__ == "__main__":
 		parser.add_argument("-o", "--output", type=str, default="", help="output video file (very experimental)")
 		parser.add_argument("-w", "--width", type=int, default="-1", help="width. -1 (default): automatic")
 		parser.add_argument("-hh", "--height", type=int, default="-1", help="height. -1 (default): automatic")
-		parser.add_argument("-ms", "--MinSize", type=int, default="50", help="minimum size of image, percentage of width and height. -1 (default): 50%")  # 2026-09-15
+		parser.add_argument("-ms", "--MinSize", type=int, default=50, help="minimum size of image, percentage of width and height. -1 (default: 50 percent)")
 		parser.add_argument("--fps", type=float, default=30.0, help="fps of output video (very experimental)")
 		parser.add_argument("-bg", "--background", type=str, default="#000000", help="background color in hex values (rgb) like #0fcc80")
 		parser.add_argument("-b", "--blackout", type=str, default="yes", help="yes/no. At the end of the show, keep the window dark until a key is pressed. Default = yes")
@@ -1453,8 +1454,9 @@ if __name__ == "__main__":
 		parser.add_argument ("--audio", type=str, default="", help="audio file, used to trim show to length of audio (experimental)") 
 		
 		
-
 		args = parser.parse_args(sys.argv[1:]) # sys.argv[1:] for enabling help in compiled version
+
+
 
 	black = None
 	startImageFound = False
